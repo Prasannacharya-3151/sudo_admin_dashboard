@@ -1,6 +1,4 @@
-import {
-  SUDO_API_BASE_URL,
-} from "./apiConfig";
+import { SUDO_API_BASE_URL } from "./apiConfig";
 
 import type {
   ApiResponse,
@@ -10,6 +8,7 @@ import type {
   CreateInstitutionPayload,
   CreateInstitutionAdminPayload,
   UpdateInstitutionPayload,
+  UpdateInstitutionStaffPayload,
 } from "../types/institution";
 
 // ==========================================
@@ -23,12 +22,13 @@ const getErrorMessage = async (
     const errorData = await response.json();
 
     return (
-      errorData.message ||
-      errorData.error ||
+      errorData?.detail ||
+      errorData?.message ||
+      errorData?.error ||
       "Something went wrong"
     );
   } catch {
-    return "Something went wrong";
+    return `Request failed with status ${response.status}`;
   }
 };
 
@@ -40,227 +40,312 @@ const getAuthHeaders = (
   accessToken: string,
 ): HeadersInit => {
   return {
-    "Content-Type":
-      "application/json",
-
-    Authorization:
-      `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
   };
 };
 
 // ==========================================
 // CREATE INSTITUTION
-//
 // POST /institution/
 // ==========================================
 
-export const createInstitution =
-  async (
-    payload: CreateInstitutionPayload,
-    accessToken: string,
-  ): Promise<Institution> => {
-    const response = await fetch(
-      `${SUDO_API_BASE_URL}/institution/`,
-      {
-        method: "POST",
+export const createInstitution = async (
+  payload: CreateInstitutionPayload,
+  accessToken: string,
+): Promise<Institution> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/institution/`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(accessToken),
+      body: JSON.stringify(payload),
+    },
+  );
 
-        headers:
-          getAuthHeaders(accessToken),
-
-        body: JSON.stringify(
-          payload,
-        ),
-      },
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
     );
+  }
 
-    if (!response.ok) {
-      throw new Error(
-        await getErrorMessage(response),
-      );
-    }
+  const result: ApiResponse<Institution> =
+    await response.json();
 
-    const result:
-      ApiResponse<Institution> =
-      await response.json();
-
-    return result.data;
-  };
-
-// ==========================================
-// CREATE INSTITUTION ADMIN
-//
-// POST /institution/:institutionId/staff
-// ==========================================
-
-export const createInstitutionAdmin =
-  async (
-    institutionId: string,
-    payload: CreateInstitutionAdminPayload,
-    accessToken: string,
-  ): Promise<InstitutionStaff> => {
-    const response = await fetch(
-      `${SUDO_API_BASE_URL}/institution/${institutionId}/staff`,
-      {
-        method: "POST",
-
-        headers:
-          getAuthHeaders(accessToken),
-
-        body: JSON.stringify(
-          payload,
-        ),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await getErrorMessage(response),
-      );
-    }
-
-    const result:
-      ApiResponse<InstitutionStaff> =
-      await response.json();
-
-    return result.data;
-  };
+  return result.data;
+};
 
 // ==========================================
 // GET ALL INSTITUTIONS
-//
 // GET /sudo-admin/institutions
-//
-// Planned Dashboard Endpoint
 // ==========================================
 
-export const getInstitutions =
-  async (
-    accessToken: string,
-  ): Promise<Institution[]> => {
-    const response = await fetch(
-      `${SUDO_API_BASE_URL}/sudo-admin/institutions`,
-      {
-        method: "GET",
+export const getInstitutions = async (
+  accessToken: string,
+): Promise<Institution[]> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/institutions`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(accessToken),
+    },
+  );
 
-        headers:
-          getAuthHeaders(accessToken),
-      },
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
     );
+  }
 
-    if (!response.ok) {
-      throw new Error(
-        await getErrorMessage(response),
-      );
-    }
+  const result: ApiResponse<Institution[]> =
+    await response.json();
 
-    const result:
-      ApiResponse<Institution[]> =
-      await response.json();
-
-    return result.data;
-  };
+  return result.data;
+};
 
 // ==========================================
 // GET SINGLE INSTITUTION
-//
 // GET /sudo-admin/institutions/:institutionId
-//
-// Returns institution with stats
 // ==========================================
 
-export const getInstitutionById =
-  async (
-    institutionId: string,
-    accessToken: string,
-  ): Promise<InstitutionDetails> => {
-    const response = await fetch(
-      `${SUDO_API_BASE_URL}/sudo-admin/institutions/${institutionId}`,
-      {
-        method: "GET",
+export const getInstitutionById = async (
+  institutionId: string,
+  accessToken: string,
+): Promise<InstitutionDetails> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/institutions/${encodeURIComponent(
+      institutionId,
+    )}`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(accessToken),
+    },
+  );
 
-        headers:
-          getAuthHeaders(accessToken),
-      },
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
     );
+  }
 
-    if (!response.ok) {
-      throw new Error(
-        await getErrorMessage(response),
-      );
-    }
+  const result: ApiResponse<InstitutionDetails> =
+    await response.json();
 
-    const result:
-      ApiResponse<InstitutionDetails> =
-      await response.json();
-
-    return result.data;
-  };
+  return result.data;
+};
 
 // ==========================================
 // UPDATE INSTITUTION
-//
 // PATCH /sudo-admin/institutions/:institutionId
-//
-// All fields optional
 // ==========================================
 
-export const updateInstitution =
-  async (
-    institutionId: string,
-    payload: UpdateInstitutionPayload,
-    accessToken: string,
-  ): Promise<Institution> => {
-    const response = await fetch(
-      `${SUDO_API_BASE_URL}/sudo-admin/institutions/${institutionId}`,
-      {
-        method: "PATCH",
+export const updateInstitution = async (
+  institutionId: string,
+  payload: UpdateInstitutionPayload,
+  accessToken: string,
+): Promise<Institution> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/institutions/${encodeURIComponent(
+      institutionId,
+    )}`,
+    {
+      method: "PATCH",
+      headers: getAuthHeaders(accessToken),
+      body: JSON.stringify(payload),
+    },
+  );
 
-        headers:
-          getAuthHeaders(accessToken),
-
-        body: JSON.stringify(
-          payload,
-        ),
-      },
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
     );
+  }
 
-    if (!response.ok) {
-      throw new Error(
-        await getErrorMessage(response),
-      );
-    }
+  const result: ApiResponse<Institution> =
+    await response.json();
 
-    const result:
-      ApiResponse<Institution> =
-      await response.json();
-
-    return result.data;
-  };
+  return result.data;
+};
 
 // ==========================================
-// DELETE / DEACTIVATE INSTITUTION
-//
+// DELETE INSTITUTION
 // DELETE /sudo-admin/institutions/:institutionId
 // ==========================================
 
-export const deleteInstitution =
-  async (
-    institutionId: string,
-    accessToken: string,
-  ): Promise<void> => {
-    const response = await fetch(
-      `${SUDO_API_BASE_URL}/sudo-admin/institutions/${institutionId}`,
-      {
-        method: "DELETE",
+export const deleteInstitution = async (
+  institutionId: string,
+  accessToken: string,
+): Promise<void> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/institutions/${encodeURIComponent(
+      institutionId,
+    )}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(accessToken),
+    },
+  );
 
-        headers:
-          getAuthHeaders(accessToken),
-      },
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
     );
+  }
+};
 
-    if (!response.ok) {
-      throw new Error(
-        await getErrorMessage(response),
-      );
-    }
-  };
+// ==========================================
+// CREATE INSTITUTION ADMIN
+// POST /institution/:institutionId/staff
+// ==========================================
+
+export const createInstitutionAdmin = async (
+  institutionId: string,
+  payload: CreateInstitutionAdminPayload,
+  accessToken: string,
+): Promise<InstitutionStaff> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+      institutionId,
+    )}/staff`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(accessToken),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
+    );
+  }
+
+  const result: ApiResponse<InstitutionStaff> =
+    await response.json();
+
+  return result.data;
+};
+
+// ==========================================
+// GET ALL INSTITUTION STAFF
+// GET /institution/:institutionId/staff
+// ==========================================
+
+export const getInstitutionStaff = async (
+  institutionId: string,
+  accessToken: string,
+): Promise<InstitutionStaff[]> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+      institutionId,
+    )}/staff`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(accessToken),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
+    );
+  }
+
+  const result: ApiResponse<InstitutionStaff[]> =
+    await response.json();
+
+  return result.data;
+};
+
+// ==========================================
+// GET SINGLE STAFF
+// GET /institution/:institutionId/staff/:staffId
+// ==========================================
+
+export const getInstitutionStaffById = async (
+  institutionId: string,
+  staffId: string,
+  accessToken: string,
+): Promise<InstitutionStaff> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+      institutionId,
+    )}/staff/${encodeURIComponent(staffId)}`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(accessToken),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
+    );
+  }
+
+  const result: ApiResponse<InstitutionStaff> =
+    await response.json();
+
+  return result.data;
+};
+
+// ==========================================
+// UPDATE INSTITUTION STAFF
+// PATCH /institution/:institutionId/staff/:staffId
+// ==========================================
+
+export const updateInstitutionStaff = async (
+  institutionId: string,
+  staffId: string,
+  payload: UpdateInstitutionStaffPayload,
+  accessToken: string,
+): Promise<InstitutionStaff> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+      institutionId,
+    )}/staff/${encodeURIComponent(staffId)}`,
+    {
+      method: "PATCH",
+      headers: getAuthHeaders(accessToken),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
+    );
+  }
+
+  const result: ApiResponse<InstitutionStaff> =
+    await response.json();
+
+  return result.data;
+};
+
+// ==========================================
+// DELETE INSTITUTION STAFF
+// DELETE /institution/:institutionId/staff/:staffId
+// ==========================================
+
+export const deleteInstitutionStaff = async (
+  institutionId: string,
+  staffId: string,
+  accessToken: string,
+): Promise<void> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+      institutionId,
+    )}/staff/${encodeURIComponent(staffId)}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(accessToken),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response),
+    );
+  }
+};

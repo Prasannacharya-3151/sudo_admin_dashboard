@@ -61,11 +61,6 @@ const platformNavigation = [
     path: "/sudo/kiosks",
     icon: Monitor,
   },
-  {
-    name: "Administrators",
-    path: "/sudo/admins",
-    icon: Users,
-  },
 ];
 
 // ==========================================

@@ -34,17 +34,21 @@ export interface RechargeMachine {
 
   ble_id: string;
 
-  initial_balance: number;
+  initial_balance?: number;
+
+  // This is what the API actually returns for
+  // the machine's current balance. It comes back
+  // as a STRING (e.g. "1000.00"), not a number.
+  recharge_balance?: string | number;
 
   balance?: number;
 
-  status?: MachineStatus;
+  status?: MachineStatus | string;
 
   created_at?: string;
 
   updated_at?: string;
 }
-
 // ==========================================
 // CREATE RECHARGE MACHINE PAYLOAD
 //
@@ -83,6 +87,8 @@ export interface MachineBalance {
   machine_id: string;
 
   balance: number;
+
+  updated_at?: string;
 }
 
 // ==========================================

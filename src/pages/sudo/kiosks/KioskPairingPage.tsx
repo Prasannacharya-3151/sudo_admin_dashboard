@@ -1,40 +1,28 @@
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  useNavigate,
-  useParams,
-} from "react-router-dom";
-
-import {
+  AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   Copy,
   Cpu,
   Link,
   Link2Off,
   Loader2,
-  Monitor,
-  RefreshCw,
   ShieldCheck,
+  Wifi,
 } from "lucide-react";
-
 import { toast } from "sonner";
 
 import { useSudoAuth } from "../../../context/SudoAuthContext";
-
 import {
-  getKioskPairing,
-  pairKiosk,
+  adminPairKiosk,
+  getKioskById,
+  getKioskPairingStatus,
+  unpairKiosk,
 } from "../../../api/kioskApi";
-
-import type {
-  KioskPairing,
-  PairKioskPayload,
-} from "../../../types/kiosk";
+import type { AdminPairKioskPayload, KioskDetails } from "../../../types/kiosk";
 
 // ==========================================
 // COMPONENT
@@ -42,570 +30,320 @@ import type {
 
 export default function KioskPairingPage() {
   const navigate = useNavigate();
-
-  const { kioskId } = useParams<{
-    kioskId: string;
-  }>();
-
+  const { kioskId } = useParams<{ kioskId: string }>();
   const { accessToken } = useSudoAuth();
 
-  // ==========================================
-  // STATE
-  // ==========================================
+  const [kiosk, setKiosk] = useState<KioskDetails | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUnpairing, setIsUnpairing] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
 
-  const [pairing, setPairing] =
-    useState<KioskPairing | null>(
-      null,
-    );
-
-  const [deviceId, setDeviceId] =
-    useState("");
-
-  const [pairingCode, setPairingCode] =
-    useState("");
-
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  const [isPairing, setIsPairing] =
-    useState(false);
+  // manual pair form
+  const [pairingCode, setPairingCode] = useState("");
+  const [deviceId, setDeviceId] = useState("");
+  const [isPairing, setIsPairing] = useState(false);
 
   // ==========================================
-  // LOAD PAIRING
+  // LOAD — try the placeholder pairing-status endpoint first;
+  // fall back to kiosk detail (which we know works) if it 404s.
   // ==========================================
 
-  const loadPairing = useCallback(
-    async () => {
-      if (!kioskId || !accessToken) {
-        return;
-      }
+  const loadPairingInfo = useCallback(async () => {
+    if (!kioskId || !accessToken) return;
+
+    try {
+      setIsLoading(true);
 
       try {
-        setIsLoading(true);
-
-        // FIX: accessToken first, kioskId second —
-        // matches getKioskPairing(accessToken, kioskId) signature
-        const data =
-          await getKioskPairing(
-            accessToken,
-            kioskId,
-          );
-
-        setPairing(data);
-
-        setDeviceId(
-          data.device_id ?? "",
+        const status = await getKioskPairingStatus(accessToken, kioskId);
+        setKiosk((previous) =>
+          previous
+            ? { ...previous, pairing_code: status.pairing_code, device_id: status.device_id ?? null, paired_at: status.paired_at ?? null }
+            : ({
+                pairing_code: status.pairing_code,
+                device_id: status.device_id ?? null,
+                paired_at: status.paired_at ?? null,
+              } as KioskDetails),
         );
-
-        setPairingCode(
-          data.pairing_code ?? "",
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load pairing:",
-          error,
-        );
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load kiosk pairing";
-
-        toast.error(message);
-      } finally {
-        setIsLoading(false);
+      } catch {
+        // placeholder route not live yet — fall back to the confirmed detail endpoint
+        const data = await getKioskById(accessToken, kioskId);
+        setKiosk(data);
       }
-    },
-    [kioskId, accessToken],
-  );
-
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
+    } catch (error) {
+      console.error("Failed to load pairing info:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to load kiosk pairing status");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [kioskId, accessToken]);
 
   useEffect(() => {
-    void loadPairing();
-  }, [loadPairing]);
+    void loadPairingInfo();
+  }, [loadPairingInfo]);
 
   // ==========================================
-  // PAIR KIOSK
+  // MANUAL PAIR — placeholder admin action
   // ==========================================
 
   const handlePair = async () => {
-    if (!kioskId || !accessToken) {
-      toast.error(
-        "Authentication information missing",
-      );
+    if (!kioskId || !accessToken) return;
 
-      return;
-    }
-
-    if (
-      !deviceId.trim() &&
-      !pairingCode.trim()
-    ) {
-      toast.error(
-        "Enter a device ID or pairing code",
-      );
-
+    if (!pairingCode.trim() && !deviceId.trim()) {
+      toast.error("Enter a pairing code or device ID");
       return;
     }
 
     try {
       setIsPairing(true);
 
-      const payload: PairKioskPayload = {};
+      const payload: AdminPairKioskPayload = {};
+      if (pairingCode.trim()) payload.pairing_code = pairingCode.trim();
+      if (deviceId.trim()) payload.device_id = deviceId.trim();
 
-      if (deviceId.trim()) {
-        payload.device_id =
-          deviceId.trim();
-      }
+      const result = await adminPairKiosk(accessToken, kioskId, payload);
 
-      if (pairingCode.trim()) {
-        payload.pairing_code =
-          pairingCode.trim();
-      }
-
-      // FIX: accessToken first, then kioskId, then payload —
-      // matches pairKiosk(accessToken, kioskId, payload) signature
-      const updatedPairing =
-        await pairKiosk(
-          accessToken,
-          kioskId,
-          payload,
-        );
-
-      setPairing(updatedPairing);
-
-      setDeviceId(
-        updatedPairing.device_id ?? "",
+      setKiosk((previous) =>
+        previous
+          ? { ...previous, pairing_code: result.pairing_code, device_id: result.device_id ?? null, paired_at: result.paired_at ?? null }
+          : previous,
       );
 
-      setPairingCode(
-        updatedPairing.pairing_code ?? "",
-      );
-
-      toast.success(
-        "Kiosk paired successfully",
-      );
+      setPairingCode("");
+      setDeviceId("");
+      toast.success("Kiosk paired successfully");
     } catch (error) {
-      console.error(
-        "Failed to pair kiosk:",
-        error,
-      );
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to pair kiosk";
-
-      toast.error(message);
+      console.error("Failed to pair kiosk:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to pair kiosk");
     } finally {
       setIsPairing(false);
     }
   };
 
   // ==========================================
-  // COPY PAIRING CODE
+  // UNPAIR — confirmed real endpoint
   // ==========================================
 
-  const handleCopyCode = async () => {
-    if (!pairingCode) {
-      toast.error(
-        "No pairing code available",
-      );
-
-      return;
-    }
+  const handleUnpair = async () => {
+    if (!kioskId || !accessToken) return;
+    if (!window.confirm("Unpair this device? The old credentials stop working immediately.")) return;
 
     try {
-      await navigator.clipboard.writeText(
-        pairingCode,
+      setIsUnpairing(true);
+      const result = await unpairKiosk(accessToken, kioskId);
+      setKiosk((previous) =>
+        previous ? { ...previous, pairing_code: result.pairing_code, device_id: null, paired_at: null } : previous,
       );
-
-      toast.success(
-        "Pairing code copied",
-      );
-    } catch {
-      toast.error(
-        "Failed to copy pairing code",
-      );
+      toast.success("Device unpaired — new pairing code issued");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to unpair device");
+    } finally {
+      setIsUnpairing(false);
     }
   };
 
-  // ==========================================
-  // STATUS CONFIG
-  // ==========================================
-
-  const statusConfig = {
-    paired: {
-      label: "Paired",
-      className:
-        "bg-green-50 text-green-700 border-green-200",
-      icon: CheckCircle2,
-    },
-
-    pending: {
-      label: "Pending",
-      className:
-        "bg-yellow-50 text-yellow-700 border-yellow-200",
-      icon: RefreshCw,
-    },
-
-    unpaired: {
-      label: "Unpaired",
-      className:
-        "bg-gray-100 text-gray-600 border-gray-200",
-      icon: Link2Off,
-    },
-  } as const;
-
-  type PairingStatusKey = keyof typeof statusConfig;
-
-  // FIX: narrow pairing?.status (a general string) down to a known
-  // statusConfig key, falling back to "unpaired" if it's anything else
-  const rawStatus = pairing?.status ?? "unpaired";
-
-  const pairingStatus: PairingStatusKey =
-    rawStatus in statusConfig
-      ? (rawStatus as PairingStatusKey)
-      : "unpaired";
-
-  const currentStatus =
-    statusConfig[pairingStatus];
-
-  const StatusIcon =
-    currentStatus.icon;
-
-  // ==========================================
-  // LOADING
-  // ==========================================
+  const handleCopyCode = async () => {
+    if (!kiosk?.pairing_code) return;
+    try {
+      await navigator.clipboard.writeText(kiosk.pairing_code);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy pairing code");
+    }
+  };
 
   if (isLoading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center">
-
         <div className="flex flex-col items-center gap-4">
-
           <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-
-          <p className="text-sm text-gray-500">
-            Loading kiosk pairing...
-          </p>
-
+          <p className="text-sm text-gray-500">Loading pairing status...</p>
         </div>
-
       </div>
     );
   }
 
-  // ==========================================
-  // PAGE
-  // ==========================================
+  if (!kiosk) {
+    return (
+      <div className="rounded-2xl border bg-white p-10 text-center">
+        <Wifi className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+        <h2 className="text-lg font-semibold text-slate-900">Kiosk not found</h2>
+      </div>
+    );
+  }
+
+  const isPaired = !!kiosk.paired_at;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 pb-10">
-
+    <div className="mx-auto w-full max-w-4xl space-y-6 pb-10">
       {/* HEADER */}
-
       <div className="flex items-start gap-4">
-
         <button
           type="button"
-          onClick={() =>
-            navigate(`/sudo/kiosks/${kioskId}`)
-          }
+          onClick={() => navigate(`/sudo/kiosks/${kioskId}`)}
           className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-brand-purple"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-
         <div>
-
           <div className="flex items-center gap-2">
-
-            <Link className="h-6 w-6 text-brand-purple" />
-
-            <h1 className="text-2xl font-bold text-gray-900">
-              Kiosk Pairing
-            </h1>
-
+            <Wifi className="h-6 w-6 text-brand-purple" />
+            <h1 className="text-2xl font-bold text-gray-900">Device Pairing</h1>
           </div>
-
           <p className="mt-2 text-sm text-gray-500">
             Connect this kiosk with its physical device.
           </p>
-
         </div>
+      </div>
 
+      {/* PLACEHOLDER NOTICE */}
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+        <p className="text-sm text-amber-800">
+          Manual pairing below calls a placeholder endpoint
+          (<code className="font-mono text-xs">POST /sudo-admin/kiosks/&#123;kioskId&#125;/pair</code>) —
+          swap it in <code className="font-mono text-xs">api/kioskApi.ts</code> once the backend
+          confirms the real route. Unpair already uses the confirmed endpoint.
+        </p>
       </div>
 
       {/* STATUS CARD */}
-
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
           <div className="flex items-center gap-4">
-
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-brand-purple">
-
-              <Monitor className="h-6 w-6" />
-
+              <Cpu className="h-6 w-6" />
             </div>
-
             <div>
-
-              <p className="text-sm font-medium text-gray-500">
-                Pairing Status
-              </p>
-
+              <p className="text-sm font-medium text-gray-500">Status</p>
               <div className="mt-2 flex items-center gap-3">
-
-                <h2 className="text-xl font-bold text-gray-900">
-                  Device Connection
-                </h2>
-
+                <h2 className="text-xl font-bold text-gray-900">{isPaired ? "Paired" : "Awaiting Pairing"}</h2>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${currentStatus.className}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                    isPaired
+                      ? "border-green-200 bg-green-50 text-green-700"
+                      : "border-gray-200 bg-gray-100 text-gray-600"
+                  }`}
                 >
-
-                  <StatusIcon className="h-3.5 w-3.5" />
-
-                  {currentStatus.label}
-
+                  {isPaired ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+                  {isPaired ? "Connected" : "Not Connected"}
                 </span>
-
               </div>
-
             </div>
-
           </div>
 
-          {pairing?.paired_at && (
-
-            <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-500">
-
-              Paired on{" "}
-
-              <span className="font-semibold text-gray-700">
-                {new Date(
-                  pairing.paired_at,
-                ).toLocaleString()}
-              </span>
-
-            </div>
-
+          {isPaired && (
+            <button
+              type="button"
+              onClick={handleUnpair}
+              disabled={isUnpairing}
+              className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+            >
+              {isUnpairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2Off className="h-4 w-4" />}
+              Unpair Device
+            </button>
           )}
-
         </div>
 
+        {isPaired && (
+          <div className="mt-6 grid gap-5 border-t border-gray-100 pt-6 md:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Device ID</p>
+              <p className="mt-2 break-all font-mono text-sm font-semibold text-gray-800">{kiosk.device_id}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Paired At</p>
+              <p className="mt-2 font-semibold text-gray-800">
+                {kiosk.paired_at ? new Date(kiosk.paired_at).toLocaleString() : "—"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* PAIRING INFO */}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-
-        {/* CURRENT DEVICE */}
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-brand-purple">
-
-              <Cpu className="h-5 w-5" />
-
-            </div>
-
-            <div>
-
-              <h2 className="font-bold text-gray-900">
-                Device Information
-              </h2>
-
-              <p className="text-sm text-gray-500">
-                Connected kiosk device
-              </p>
-
-            </div>
-
+      {/* PAIRING CODE */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-brand-purple">
+            <ShieldCheck className="h-5 w-5" />
           </div>
-
-          <div className="mt-6 rounded-xl bg-gray-50 p-4">
-
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Device ID
+          <div>
+            <h2 className="font-bold text-gray-900">Pairing Code</h2>
+            <p className="text-sm text-gray-500">
+              {isPaired ? "Already consumed for this pairing." : "Give this to the installer, or use manual pairing below."}
             </p>
-
-            <p className="mt-2 break-all font-mono text-sm font-semibold text-gray-800">
-              {pairing?.device_id ||
-                "No device paired"}
-            </p>
-
           </div>
-
         </div>
 
-        {/* PAIRING CODE */}
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-brand-purple">
-
-              <ShieldCheck className="h-5 w-5" />
-
-            </div>
-
-            <div>
-
-              <h2 className="font-bold text-gray-900">
-                Pairing Code
-              </h2>
-
-              <p className="text-sm text-gray-500">
-                Secure kiosk pairing identifier
-              </p>
-
-            </div>
-
-          </div>
-
-          <div className="mt-6 flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-4">
-
-            <p className="break-all font-mono text-lg font-bold tracking-wider text-gray-900">
-              {pairing?.pairing_code ||
-                "Not available"}
-            </p>
-
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              disabled={!pairing?.pairing_code}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm transition hover:text-brand-purple disabled:opacity-40"
-            >
-              <Copy className="h-4 w-4" />
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* PAIR DEVICE */}
-
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
-        <div className="border-b border-gray-100 px-6 py-5">
-
-          <h2 className="text-lg font-bold text-gray-900">
-            Pair Kiosk Device
-          </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Connect a physical kiosk device using its device ID or pairing code.
+        <div className="mt-6 flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-4">
+          <p className="break-all font-mono text-lg font-bold tracking-wider text-gray-900">
+            {kiosk.pairing_code || "Not available"}
           </p>
-
+          <button
+            type="button"
+            onClick={handleCopyCode}
+            disabled={!kiosk.pairing_code}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm transition hover:text-brand-purple disabled:opacity-40"
+          >
+            {codeCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+          </button>
         </div>
-
-        <div className="space-y-6 p-6">
-
-          {/* DEVICE ID */}
-
-          <div>
-
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Device ID
-            </label>
-
-            <input
-              type="text"
-              value={deviceId}
-              onChange={(event) =>
-                setDeviceId(
-                  event.target.value,
-                )
-              }
-              placeholder="Enter kiosk device ID"
-              className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
-            />
-
-          </div>
-
-          {/* DIVIDER */}
-
-          <div className="relative flex items-center">
-
-            <div className="flex-1 border-t border-gray-200" />
-
-            <span className="px-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              OR
-            </span>
-
-            <div className="flex-1 border-t border-gray-200" />
-
-          </div>
-
-          {/* PAIRING CODE */}
-
-          <div>
-
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Pairing Code
-            </label>
-
-            <input
-              type="text"
-              value={pairingCode}
-              onChange={(event) =>
-                setPairingCode(
-                  event.target.value,
-                )
-              }
-              placeholder="Enter pairing code"
-              className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm uppercase outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
-            />
-
-          </div>
-
-          {/* ACTION */}
-
-          <div className="flex justify-end">
-
-            <button
-              type="button"
-              onClick={handlePair}
-              disabled={
-                isPairing ||
-                (!deviceId.trim() &&
-                  !pairingCode.trim())
-              }
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-purple px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-
-              {isPairing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Link className="h-4 w-4" />
-              )}
-
-              {isPairing
-                ? "Pairing..."
-                : pairingStatus === "paired"
-                  ? "Update Pairing"
-                  : "Pair Device"}
-
-            </button>
-
-          </div>
-
-        </div>
-
       </div>
 
+      {/* MANUAL PAIR (placeholder) */}
+      {!isPaired && (
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-6 py-5">
+            <h2 className="text-lg font-bold text-gray-900">Pair Kiosk Device</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Connect a physical kiosk device using its device ID or pairing code.
+            </p>
+          </div>
+
+          <div className="space-y-6 p-6">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Device ID</label>
+              <input
+                type="text"
+                value={deviceId}
+                onChange={(event) => setDeviceId(event.target.value)}
+                placeholder="Enter kiosk device ID"
+                className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+              />
+            </div>
+
+            <div className="relative flex items-center">
+              <div className="flex-1 border-t border-gray-200" />
+              <span className="px-4 text-xs font-semibold uppercase tracking-wide text-gray-400">OR</span>
+              <div className="flex-1 border-t border-gray-200" />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">Pairing Code</label>
+              <input
+                type="text"
+                value={pairingCode}
+                onChange={(event) => setPairingCode(event.target.value)}
+                placeholder="Enter pairing code"
+                className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm uppercase outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handlePair}
+                disabled={isPairing || (!deviceId.trim() && !pairingCode.trim())}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-purple px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
+                {isPairing ? "Pairing..." : "Pair Device"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

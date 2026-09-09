@@ -30,20 +30,14 @@ import {
   getMachines,
 } from "../../../api/machineApi";
 
+import { getMachineBalanceValue } from "../../../utils/machineBalance";
+
 import type {
   RechargeMachine,
 } from "../../../types/machine";
 
-// ==========================================
-// COMPONENT
-// ==========================================
-
 export default function MachinesPage() {
   const navigate = useNavigate();
-
-  // ==========================================
-  // STATE
-  // ==========================================
 
   const [machines, setMachines] =
     useState<RechargeMachine[]>([]);
@@ -62,10 +56,6 @@ export default function MachinesPage() {
 
   const [error, setError] =
     useState<string | null>(null);
-
-  // ==========================================
-  // FETCH MACHINES
-  // ==========================================
 
   const fetchMachines = useCallback(
     async (showRefreshLoader = false) => {
@@ -107,17 +97,9 @@ export default function MachinesPage() {
     [],
   );
 
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
-
   useEffect(() => {
     void fetchMachines();
   }, [fetchMachines]);
-
-  // ==========================================
-  // FILTER MACHINES
-  // ==========================================
 
   const filteredMachines = useMemo(() => {
     const query =
@@ -158,10 +140,6 @@ export default function MachinesPage() {
     machines,
     searchQuery,
   ]);
-
-  // ==========================================
-  // DELETE MACHINE
-  // ==========================================
 
   const handleDeleteMachine = async (
     machine: RechargeMachine,
@@ -219,10 +197,6 @@ export default function MachinesPage() {
     }
   };
 
-  // ==========================================
-  // FORMAT CURRENCY
-  // ==========================================
-
   const formatCurrency = (
     amount?: number,
   ) => {
@@ -242,10 +216,6 @@ export default function MachinesPage() {
       },
     ).format(amount);
   };
-
-  // ==========================================
-  // STATUS BADGE
-  // ==========================================
 
   const getStatusClass = (
     status?: string,
@@ -270,34 +240,6 @@ export default function MachinesPage() {
     }
   };
 
-  // ==========================================
-  // GET MACHINE BALANCE
-  // ==========================================
-
-  const getMachineBalanceValue = (
-    machine: RechargeMachine,
-  ) => {
-    if (
-      machine.balance !== undefined &&
-      machine.balance !== null
-    ) {
-      return machine.balance;
-    }
-
-    if (
-      machine.initial_balance !== undefined &&
-      machine.initial_balance !== null
-    ) {
-      return machine.initial_balance;
-    }
-
-    return 0;
-  };
-
-  // ==========================================
-  // LOADING
-  // ==========================================
-
   if (isLoading) {
     return (
       <div className="flex min-h-[500px] items-center justify-center">
@@ -312,24 +254,11 @@ export default function MachinesPage() {
     );
   }
 
-  // ==========================================
-  // UI
-  // ==========================================
-
   return (
     <div className="space-y-6">
-
-      {/* ======================================
-          PAGE HEADER
-      ====================================== */}
-
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-        {/* TITLE */}
-
         <div>
           <div className="flex items-center gap-3">
-
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
               <Cpu className="h-6 w-6 text-brand-purple" />
             </div>
@@ -343,16 +272,10 @@ export default function MachinesPage() {
                 Manage RFID recharge machines
               </p>
             </div>
-
           </div>
         </div>
 
-        {/* ACTIONS */}
-
         <div className="flex items-center gap-3">
-
-          {/* REFRESH */}
-
           <button
             type="button"
             onClick={() =>
@@ -372,8 +295,6 @@ export default function MachinesPage() {
             Refresh
           </button>
 
-          {/* CREATE */}
-
           <button
             type="button"
             onClick={() =>
@@ -387,23 +308,12 @@ export default function MachinesPage() {
 
             Add Machine
           </button>
-
         </div>
-
       </div>
 
-      {/* ======================================
-          STATS
-      ====================================== */}
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-
-        {/* TOTAL MACHINES */}
-
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
               <p className="text-sm font-medium text-gray-500">
                 Total Machines
@@ -417,17 +327,11 @@ export default function MachinesPage() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
               <Cpu className="h-5 w-5 text-brand-purple" />
             </div>
-
           </div>
-
         </div>
 
-        {/* ACTIVE MACHINES */}
-
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
               <p className="text-sm font-medium text-gray-500">
                 Active Machines
@@ -448,17 +352,11 @@ export default function MachinesPage() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50">
               <div className="h-3 w-3 rounded-full bg-green-500" />
             </div>
-
           </div>
-
         </div>
 
-        {/* TOTAL BALANCE */}
-
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
               <p className="text-sm font-medium text-gray-500">
                 Total Balance
@@ -484,22 +382,13 @@ export default function MachinesPage() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-50">
               <Wallet className="h-5 w-5 text-yellow-600" />
             </div>
-
           </div>
-
         </div>
-
       </div>
-
-      {/* ======================================
-          ERROR STATE
-      ====================================== */}
 
       {error && (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4">
-
           <div className="flex items-center gap-3">
-
             <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
 
             <div>
@@ -511,7 +400,6 @@ export default function MachinesPage() {
                 {error}
               </p>
             </div>
-
           </div>
 
           <button
@@ -523,20 +411,11 @@ export default function MachinesPage() {
           >
             Try Again
           </button>
-
         </div>
       )}
 
-      {/* ======================================
-          MACHINE LIST
-      ====================================== */}
-
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-
-        {/* HEADER */}
-
         <div className="flex flex-col gap-4 border-b border-gray-100 p-5 lg:flex-row lg:items-center lg:justify-between">
-
           <div>
             <h2 className="text-lg font-bold text-gray-900">
               All Machines
@@ -551,10 +430,7 @@ export default function MachinesPage() {
             </p>
           </div>
 
-          {/* SEARCH */}
-
           <div className="relative w-full lg:w-[360px]">
-
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
             <input
@@ -568,19 +444,11 @@ export default function MachinesPage() {
               placeholder="Search institution, block or BLE ID..."
               className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
             />
-
           </div>
-
         </div>
 
-        {/* ======================================
-            EMPTY STATE
-        ====================================== */}
-
         {filteredMachines.length === 0 ? (
-
           <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
-
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
               <Cpu className="h-8 w-8 text-gray-400" />
             </div>
@@ -612,25 +480,13 @@ export default function MachinesPage() {
                 Add Machine
               </button>
             )}
-
           </div>
-
         ) : (
-
           <>
-
-            {/* ==================================
-                DESKTOP TABLE
-            ================================== */}
-
             <div className="hidden overflow-x-auto lg:block">
-
               <table className="w-full">
-
                 <thead className="bg-gray-50">
-
                   <tr>
-
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                       Institution
                     </th>
@@ -654,28 +510,19 @@ export default function MachinesPage() {
                     <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                       Actions
                     </th>
-
                   </tr>
-
                 </thead>
 
                 <tbody className="divide-y divide-gray-100">
-
                   {filteredMachines.map(
                     (machine) => {
-
                       return (
                         <tr
                           key={machine.id}
                           className="transition hover:bg-gray-50/70"
                         >
-
-                          {/* INSTITUTION */}
-
                           <td className="px-6 py-5">
-
                             <div className="flex items-center gap-3">
-
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-purple/10">
                                 <Building2 className="h-5 w-5 text-brand-purple" />
                               </div>
@@ -691,51 +538,33 @@ export default function MachinesPage() {
                                     "—"}
                                 </p>
                               </div>
-
                             </div>
-
                           </td>
 
-                          {/* MACHINE BLOCK */}
-
                           <td className="px-6 py-5">
-
                             <div className="flex items-center gap-2">
-
                               <Cpu className="h-4 w-4 text-gray-400" />
 
                               <span className="text-sm font-medium text-gray-700">
                                 {machine.recharge_machine_block ||
                                   "—"}
                               </span>
-
                             </div>
-
                           </td>
 
-                          {/* BLE ID */}
-
                           <td className="px-6 py-5">
-
                             <div className="flex items-center gap-2">
-
                               <Bluetooth className="h-4 w-4 text-gray-400" />
 
                               <span className="font-mono text-sm text-gray-600">
                                 {machine.ble_id ||
                                   "—"}
                               </span>
-
                             </div>
-
                           </td>
 
-                          {/* BALANCE */}
-
                           <td className="px-6 py-5">
-
                             <div className="flex items-center gap-2">
-
                               <Wallet className="h-4 w-4 text-gray-400" />
 
                               <span className="font-semibold text-gray-900">
@@ -745,15 +574,10 @@ export default function MachinesPage() {
                                   ),
                                 )}
                               </span>
-
                             </div>
-
                           </td>
 
-                          {/* STATUS */}
-
                           <td className="px-6 py-5">
-
                             <span
                               className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ring-inset ${getStatusClass(
                                 machine.status,
@@ -762,17 +586,10 @@ export default function MachinesPage() {
                               {machine.status ||
                                 "Unknown"}
                             </span>
-
                           </td>
 
-                          {/* ACTIONS */}
-
                           <td className="px-6 py-5">
-
                             <div className="flex justify-end gap-2">
-
-                              {/* VIEW */}
-
                               <button
                                 type="button"
                                 onClick={() =>
@@ -785,8 +602,6 @@ export default function MachinesPage() {
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
-
-                              {/* DELETE */}
 
                               <button
                                 type="button"
@@ -809,47 +624,30 @@ export default function MachinesPage() {
                                   <Trash2 className="h-4 w-4" />
                                 )}
                               </button>
-
                             </div>
-
                           </td>
-
                         </tr>
                       );
                     },
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
 
-            {/* ==================================
-                MOBILE CARDS
-            ================================== */}
-
             <div className="divide-y divide-gray-100 lg:hidden">
-
               {filteredMachines.map(
                 (machine) => (
                   <div
                     key={machine.id}
                     className="p-5"
                   >
-
-                    {/* TOP */}
-
                     <div className="flex items-start justify-between gap-4">
-
                       <div className="flex min-w-0 items-center gap-3">
-
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-purple/10">
                           <Cpu className="h-5 w-5 text-brand-purple" />
                         </div>
 
                         <div className="min-w-0">
-
                           <h3 className="truncate font-semibold text-gray-900">
                             {machine.recharge_machine_block ||
                               "RFID Machine"}
@@ -859,9 +657,7 @@ export default function MachinesPage() {
                             {machine.institution_name ||
                               "Institution not specified"}
                           </p>
-
                         </div>
-
                       </div>
 
                       <span
@@ -872,38 +668,28 @@ export default function MachinesPage() {
                         {machine.status ||
                           "Unknown"}
                       </span>
-
                     </div>
 
-                    {/* INFO */}
-
                     <div className="mt-5 grid grid-cols-2 gap-4">
-
                       <div>
-
                         <p className="text-xs text-gray-500">
                           BLE ID
                         </p>
 
                         <div className="mt-1 flex items-center gap-1 text-sm font-medium text-gray-800">
-
                           <Bluetooth className="h-3.5 w-3.5 text-gray-400" />
 
                           {machine.ble_id ||
                             "—"}
-
                         </div>
-
                       </div>
 
                       <div>
-
                         <p className="text-xs text-gray-500">
                           Balance
                         </p>
 
                         <div className="mt-1 flex items-center gap-1 text-sm font-semibold text-gray-900">
-
                           <Wallet className="h-3.5 w-3.5 text-gray-400" />
 
                           {formatCurrency(
@@ -911,17 +697,11 @@ export default function MachinesPage() {
                               machine,
                             ),
                           )}
-
                         </div>
-
                       </div>
-
                     </div>
 
-                    {/* ACTIONS */}
-
                     <div className="mt-5 flex gap-3">
-
                       <button
                         type="button"
                         onClick={() =>
@@ -956,21 +736,14 @@ export default function MachinesPage() {
                           <Trash2 className="h-4 w-4" />
                         )}
                       </button>
-
                     </div>
-
                   </div>
                 ),
               )}
-
             </div>
-
           </>
-
         )}
-
       </div>
-
     </div>
   );
 }

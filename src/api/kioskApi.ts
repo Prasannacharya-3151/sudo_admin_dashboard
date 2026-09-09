@@ -9,274 +9,161 @@ import type {
   KioskCapabilities,
   UpdateKioskCapabilitiesPayload,
   KioskPricing,
+  CreateKioskPricingPayload,
   UpdateKioskPricingPayload,
   KioskPrinter,
   AddKioskPrinterPayload,
-  UpdateKioskPrinterPayload,
-  KioskPairing,
   PairKioskPayload,
-  KioskListResponse,
+  PairKioskResponse,
+  KioskAuthPayload,
+  KioskAuthResponse,
+  UnpairKioskResponse,
+  KioskListFilters,
+  KioskPairingStatusResponse,
+  AdminPairKioskPayload,
 } from "../types/kiosk";
 
 // ==========================================
-// HELPER
+// HELPERS
 // ==========================================
 
-const getErrorMessage = async (
-  response: Response,
-): Promise<string> => {
+const getErrorMessage = async (response: Response): Promise<string> => {
   try {
     const errorData = await response.json();
-
-    return (
-      errorData.message ||
-      errorData.error ||
-      "Something went wrong"
-    );
+    return errorData.message || errorData.error || "Something went wrong";
   } catch {
     return "Something went wrong";
   }
 };
 
-// ==========================================
-// GET AUTH HEADERS
-// ==========================================
-
-const getAuthHeaders = (
-  accessToken: string,
-): HeadersInit => ({
+const authHeaders = (accessToken: string): HeadersInit => ({
   "Content-Type": "application/json",
-
   Authorization: `Bearer ${accessToken}`,
 });
 
-// ==========================================
-// RESPONSE HELPER
-// Handles:
-// { data: ... }
-// ==========================================
+const noAuthHeaders: HeadersInit = {
+  "Content-Type": "application/json",
+};
 
-const unwrapResponse = <T>(
-  result: ApiResponse<T> | T,
-): T => {
-  if (
-    typeof result === "object" &&
-    result !== null &&
-    "data" in result &&
-    result.data !== undefined
-  ) {
-    return result.data;
+const unwrapResponse = <T>(result: ApiResponse<T> | T): T => {
+  if (typeof result === "object" && result !== null && "data" in result) {
+    return (result as ApiResponse<T>).data;
   }
-
   return result as T;
 };
 
 // ==========================================
-// CREATE KIOSK
-// POST /kiosk/
+// KIOSK CRUD
 // ==========================================
 
+// POST /sudo-admin/kiosks/
 export const createKiosk = async (
   accessToken: string,
   payload: CreateKioskPayload,
 ): Promise<Kiosk> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/kiosk/`,
-    {
-      method: "POST",
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
 
-      headers: getAuthHeaders(accessToken),
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<Kiosk>
-    | Kiosk = await response.json();
-
+  const result: ApiResponse<Kiosk> = await response.json();
   return unwrapResponse<Kiosk>(result);
 };
 
-// ==========================================
-// GET ALL KIOSKS
-// GET /sudo-admin/kiosks
-// ==========================================
-
+// ⏳ GET /sudo-admin/kiosks not built yet.
+// Fallback: public GET /kiosk/ (no auth), filter client-side.
 export const getKiosks = async (
-  accessToken: string,
+  filters?: KioskListFilters,
 ): Promise<Kiosk[]> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks`,
-    {
-      method: "GET",
+  const response = await fetch(`${SUDO_API_BASE_URL}/kiosk/`, {
+    method: "GET",
+    headers: noAuthHeaders,
+  });
 
-      headers: getAuthHeaders(accessToken),
-    },
-  );
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
+  const result: ApiResponse<Kiosk[]> | Kiosk[] = await response.json();
+  const data = unwrapResponse<Kiosk[]>(result);
 
-  const result:
-    | ApiResponse<Kiosk[]>
-    | Kiosk[]
-    | KioskListResponse =
-    await response.json();
+  if (!filters) return data;
 
-  const data = unwrapResponse<
-    Kiosk[] | KioskListResponse
-  >(result);
-
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  return data.items || [];
+  return data.filter((kiosk) => {
+    if (filters.kiosk_type && kiosk.kiosk_type !== filters.kiosk_type) return false;
+    if (filters.institution_id && kiosk.institution_id !== filters.institution_id) return false;
+    if (filters.paired !== undefined) {
+      const isPaired = kiosk.paired_at !== null;
+      if (isPaired !== filters.paired) return false;
+    }
+    return true;
+  });
 };
 
-// ==========================================
-// GET SINGLE KIOSK
-// GET /sudo-admin/kiosks/:kioskId
-// ==========================================
-
+// GET /sudo-admin/kiosks/{kioskId}
 export const getKioskById = async (
   accessToken: string,
   kioskId: string,
 ): Promise<KioskDetails> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`,
-    {
-      method: "GET",
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`, {
+    method: "GET",
+    headers: authHeaders(accessToken),
+  });
 
-      headers: getAuthHeaders(accessToken),
-    },
-  );
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskDetails>
-    | KioskDetails =
-    await response.json();
-
-  return unwrapResponse<KioskDetails>(
-    result,
-  );
+  const result: ApiResponse<KioskDetails> = await response.json();
+  return unwrapResponse<KioskDetails>(result);
 };
 
-// ==========================================
-// UPDATE KIOSK
-// PATCH /sudo-admin/kiosks/:kioskId
-// ==========================================
-
+// ⏳ PATCH /sudo-admin/kiosks/{kioskId} — route not built on backend yet.
+// Will 404 until it ships; keep the edit page's submit disabled or catch this.
 export const updateKiosk = async (
   accessToken: string,
   kioskId: string,
   payload: UpdateKioskPayload,
 ): Promise<Kiosk> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`,
-    {
-      method: "PATCH",
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`, {
+    method: "PATCH",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
 
-      headers: getAuthHeaders(accessToken),
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<Kiosk>
-    | Kiosk =
-    await response.json();
-
+  const result: ApiResponse<Kiosk> = await response.json();
   return unwrapResponse<Kiosk>(result);
 };
 
-// ==========================================
-// DELETE KIOSK
-// DELETE /sudo-admin/kiosks/:kioskId
-// ==========================================
+// ⏳ DELETE /sudo-admin/kiosks/{kioskId} — route not built on backend yet.
+export const deleteKiosk = async (accessToken: string, kioskId: string): Promise<void> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`, {
+    method: "DELETE",
+    headers: authHeaders(accessToken),
+  });
 
-export const deleteKiosk = async (
-  accessToken: string,
-  kioskId: string,
-): Promise<void> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`,
-    {
-      method: "DELETE",
-
-      headers: getAuthHeaders(accessToken),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 };
 
 // ==========================================
-// GET KIOSK CAPABILITIES
-// GET /sudo-admin/kiosks/:kioskId/capabilities
+// CAPABILITIES
 // ==========================================
 
-export const getKioskCapabilities = async (
-  accessToken: string,
-  kioskId: string,
-): Promise<KioskCapabilities> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/capabilities`,
-    {
-      method: "GET",
+// GET /kiosks/{kioskId}/capabilities — PUBLIC, no auth
+export const getKioskCapabilities = async (kioskId: string): Promise<KioskCapabilities> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/kiosks/${kioskId}/capabilities`, {
+    method: "GET",
+    headers: noAuthHeaders,
+  });
 
-      headers: getAuthHeaders(accessToken),
-    },
-  );
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskCapabilities>
-    | KioskCapabilities =
-    await response.json();
-
-  return unwrapResponse<KioskCapabilities>(
-    result,
-  );
+  const result: ApiResponse<KioskCapabilities> = await response.json();
+  return unwrapResponse<KioskCapabilities>(result);
 };
 
-// ==========================================
-// UPDATE KIOSK CAPABILITIES
-// PATCH /sudo-admin/kiosks/:kioskId/capabilities
-// ==========================================
-
+// PUT /sudo-admin/kiosks/{kioskId}/capabilities
 export const updateKioskCapabilities = async (
   accessToken: string,
   kioskId: string,
@@ -285,216 +172,120 @@ export const updateKioskCapabilities = async (
   const response = await fetch(
     `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/capabilities`,
     {
-      method: "PATCH",
-
-      headers: getAuthHeaders(accessToken),
-
+      method: "PUT",
+      headers: authHeaders(accessToken),
       body: JSON.stringify(payload),
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  const result:
-    | ApiResponse<KioskCapabilities>
-    | KioskCapabilities =
-    await response.json();
-
-  return unwrapResponse<KioskCapabilities>(
-    result,
-  );
+  const result: ApiResponse<KioskCapabilities> = await response.json();
+  return unwrapResponse<KioskCapabilities>(result);
 };
 
 // ==========================================
-// GET KIOSK PRICING
-// GET /sudo-admin/kiosks/:kioskId/pricing
+// PRICING (row-based)
 // ==========================================
 
-export const getKioskPricing = async (
+// POST /sudo-admin/kiosks/{kioskId}/pricing
+export const createKioskPricing = async (
   accessToken: string,
   kioskId: string,
+  payload: CreateKioskPricingPayload,
 ): Promise<KioskPricing> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pricing`,
-    {
-      method: "GET",
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pricing`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
 
-      headers: getAuthHeaders(accessToken),
-    },
-  );
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskPricing>
-    | KioskPricing =
-    await response.json();
-
-  return unwrapResponse<KioskPricing>(
-    result,
-  );
+  const result: ApiResponse<KioskPricing> = await response.json();
+  return unwrapResponse<KioskPricing>(result);
 };
 
-// ==========================================
-// UPDATE KIOSK PRICING
-// PATCH /sudo-admin/kiosks/:kioskId/pricing
-// ==========================================
-
+// PATCH /sudo-admin/kiosks/{kioskId}/pricing/{pricingId}
 export const updateKioskPricing = async (
   accessToken: string,
   kioskId: string,
+  pricingId: string,
   payload: UpdateKioskPricingPayload,
 ): Promise<KioskPricing> => {
   const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pricing`,
+    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pricing/${pricingId}`,
     {
       method: "PATCH",
-
-      headers: getAuthHeaders(accessToken),
-
+      headers: authHeaders(accessToken),
       body: JSON.stringify(payload),
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  const result:
-    | ApiResponse<KioskPricing>
-    | KioskPricing =
-    await response.json();
+  const result: ApiResponse<KioskPricing> = await response.json();
+  return unwrapResponse<KioskPricing>(result);
+};
 
-  return unwrapResponse<KioskPricing>(
-    result,
+// DELETE /sudo-admin/kiosks/{kioskId}/pricing/{pricingId} — soft delete (active -> false)
+export const deactivateKioskPricing = async (
+  accessToken: string,
+  kioskId: string,
+  pricingId: string,
+): Promise<void> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pricing/${pricingId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(accessToken),
+    },
   );
+
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 };
 
 // ==========================================
-// GET KIOSK PRINTERS
-// GET /sudo-admin/kiosks/:kioskId/printers
+// PRINTERS
 // ==========================================
 
+// GET /sudo-admin/kiosks/{kioskId}/printers
 export const getKioskPrinters = async (
   accessToken: string,
   kioskId: string,
 ): Promise<KioskPrinter[]> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/printers`,
-    {
-      method: "GET",
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/printers`, {
+    method: "GET",
+    headers: authHeaders(accessToken),
+  });
 
-      headers: getAuthHeaders(accessToken),
-    },
-  );
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskPrinter[]>
-    | KioskPrinter[] =
-    await response.json();
-
-  return unwrapResponse<KioskPrinter[]>(
-    result,
-  );
+  const result: ApiResponse<KioskPrinter[]> = await response.json();
+  return unwrapResponse<KioskPrinter[]>(result);
 };
 
-// ==========================================
-// ADD KIOSK PRINTER
-// POST /sudo-admin/kiosks/:kioskId/printers
-// ==========================================
-
+// POST /sudo-admin/kiosks/{kioskId}/printers — becomes default automatically
 export const addKioskPrinter = async (
   accessToken: string,
   kioskId: string,
   payload: AddKioskPrinterPayload,
 ): Promise<KioskPrinter> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/printers`,
-    {
-      method: "POST",
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/printers`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
 
-      headers: getAuthHeaders(accessToken),
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskPrinter>
-    | KioskPrinter =
-    await response.json();
-
-  return unwrapResponse<KioskPrinter>(
-    result,
-  );
+  const result: ApiResponse<KioskPrinter> = await response.json();
+  return unwrapResponse<KioskPrinter>(result);
 };
 
-// ==========================================
-// UPDATE KIOSK PRINTER
-// PATCH /sudo-admin/kiosks/:kioskId/printers/:printerId
-// ==========================================
-
-export const updateKioskPrinter = async (
-  accessToken: string,
-  kioskId: string,
-  printerId: string,
-  payload: UpdateKioskPrinterPayload,
-): Promise<KioskPrinter> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/printers/${printerId}`,
-    {
-      method: "PATCH",
-
-      headers: getAuthHeaders(accessToken),
-
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskPrinter>
-    | KioskPrinter =
-    await response.json();
-
-  return unwrapResponse<KioskPrinter>(
-    result,
-  );
-};
-
-// ==========================================
-// DELETE KIOSK PRINTER
-// DELETE /sudo-admin/kiosks/:kioskId/printers/:printerId
-// ==========================================
-
-export const deleteKioskPrinter = async (
+// DELETE /sudo-admin/kiosks/{kioskId}/printers/{printerId}
+// NOTE: no update-printer endpoint exists in the spec — don't add one.
+export const removeKioskPrinter = async (
   accessToken: string,
   kioskId: string,
   printerId: string,
@@ -503,110 +294,104 @@ export const deleteKioskPrinter = async (
     `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/printers/${printerId}`,
     {
       method: "DELETE",
-
-      headers: getAuthHeaders(accessToken),
+      headers: authHeaders(accessToken),
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 };
 
 // ==========================================
-// GET KIOSK PAIRING STATUS
-// GET /sudo-admin/kiosks/:kioskId/pairing
+// PAIRING — machine-facing (called from the kiosk desktop app, not the admin dashboard)
 // ==========================================
 
-export const getKioskPairing = async (
-  accessToken: string,
-  kioskId: string,
-): Promise<KioskPairing> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pairing`,
-    {
-      method: "GET",
-
-      headers: getAuthHeaders(accessToken),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskPairing>
-    | KioskPairing =
-    await response.json();
-
-  return unwrapResponse<KioskPairing>(
-    result,
-  );
-};
-
-// ==========================================
-// PAIR KIOSK
-// POST /sudo-admin/kiosks/:kioskId/pair
-// ==========================================
-
-export const pairKiosk = async (
-  accessToken: string,
-  kioskId: string,
+// POST /kiosks/pair — NO auth. kioskId is NOT in the URL; lookup is via pairing_code.
+export const pairKioskMachine = async (
   payload: PairKioskPayload,
-): Promise<KioskPairing> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pair`,
-    {
-      method: "POST",
+): Promise<PairKioskResponse> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/kiosks/pair`, {
+    method: "POST",
+    headers: noAuthHeaders,
+    body: JSON.stringify(payload),
+  });
 
-      headers: getAuthHeaders(accessToken),
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<KioskPairing>
-    | KioskPairing =
-    await response.json();
-
-  return unwrapResponse<KioskPairing>(
-    result,
-  );
+  const result: ApiResponse<PairKioskResponse> = await response.json();
+  return unwrapResponse<PairKioskResponse>(result);
 };
 
-// ==========================================
-// UNPAIR KIOSK
-// POST /sudo-admin/kiosks/:kioskId/unpair
-// ==========================================
+// POST /kiosks/auth — NO auth. Called at every kiosk boot with stored device credentials.
+export const authenticateKioskMachine = async (
+  payload: KioskAuthPayload,
+): Promise<KioskAuthResponse> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/kiosks/auth`, {
+    method: "POST",
+    headers: noAuthHeaders,
+    body: JSON.stringify(payload),
+  });
 
+  if (!response.ok) throw new Error(await getErrorMessage(response));
+
+  const result: ApiResponse<KioskAuthResponse> = await response.json();
+  return unwrapResponse<KioskAuthResponse>(result);
+};
+
+// POST /sudo-admin/kiosks/{kioskId}/unpair — returns a fresh pairing_code, keep it, don't discard
 export const unpairKiosk = async (
   accessToken: string,
   kioskId: string,
-): Promise<void> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/unpair`,
-    {
-      method: "POST",
+): Promise<UnpairKioskResponse> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/unpair`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+  });
 
-      headers: getAuthHeaders(accessToken),
-    },
-  );
+  if (!response.ok) throw new Error(await getErrorMessage(response));
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
+  const result: ApiResponse<UnpairKioskResponse> = await response.json();
+  return unwrapResponse<UnpairKioskResponse>(result);
 };
+
+// ⏳ PLACEHOLDER — GET /sudo-admin/kiosks/{kioskId}/pairing
+// Not in the confirmed spec yet. Swap the path/method below once backend
+// confirms the real route — everything that calls this function stays the same.
+export const getKioskPairingStatus = async (
+  accessToken: string,
+  kioskId: string,
+): Promise<KioskPairingStatusResponse> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pairing`, {
+    method: "GET",
+    headers: authHeaders(accessToken),
+  });
+
+  if (!response.ok) throw new Error(await getErrorMessage(response));
+
+  const result: ApiResponse<KioskPairingStatusResponse> = await response.json();
+  return unwrapResponse<KioskPairingStatusResponse>(result);
+};
+
+// ⏳ PLACEHOLDER — POST /sudo-admin/kiosks/{kioskId}/pair
+// Not in the confirmed spec yet (the documented /kiosks/pair is machine-facing,
+// no auth, no kioskId). Swap this once backend confirms an admin-side route.
+export const adminPairKiosk = async (
+  accessToken: string,
+  kioskId: string,
+  payload: AdminPairKioskPayload,
+): Promise<KioskPairingStatusResponse> => {
+  const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/pair`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) throw new Error(await getErrorMessage(response));
+
+  const result: ApiResponse<KioskPairingStatusResponse> = await response.json();
+  return unwrapResponse<KioskPairingStatusResponse>(result);
+};
+
+// NOTE: KioskPairingPage can now use getKioskPairingStatus() once the backend
+// route is confirmed. Until then, the fallback is still valid: read pairing
+// state straight off Kiosk / KioskDetails — paired_at === null means
+// "awaiting pairing"; paired_at set means paired.

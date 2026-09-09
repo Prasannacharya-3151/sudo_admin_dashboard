@@ -14,6 +14,7 @@ import {
 import {
   useEffect,
   useState,
+  type FormEvent,
 } from "react";
 
 import {
@@ -29,14 +30,12 @@ import {
   rechargeMachine,
 } from "../../../api/machineApi";
 
+import { getMachineBalanceValue } from "../../../utils/machineBalance";
+
 import type {
   RechargeMachine,
   MachineBalance,
 } from "../../../types/machine";
-
-// ==========================================
-// COMPONENT
-// ==========================================
 
 export default function RechargeMachinePage() {
   const navigate = useNavigate();
@@ -44,10 +43,6 @@ export default function RechargeMachinePage() {
   const { machineId } = useParams<{
     machineId: string;
   }>();
-
-  // ==========================================
-  // STATE
-  // ==========================================
 
   const [machine, setMachine] =
     useState<RechargeMachine | null>(null);
@@ -64,29 +59,14 @@ export default function RechargeMachinePage() {
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
-  // ==========================================
-  // GET CURRENT BALANCE
-  // ==========================================
-
   const getCurrentBalance = () => {
-    if (machineBalance?.balance !== undefined) {
-      return Number(machineBalance.balance);
-    }
+    if (!machine) return 0;
 
-    if (machine?.balance !== undefined) {
-      return Number(machine.balance);
-    }
-
-    if (machine?.initial_balance !== undefined) {
-      return Number(machine.initial_balance);
-    }
-
-    return 0;
+    return getMachineBalanceValue(
+      machine,
+      machineBalance,
+    );
   };
-
-  // ==========================================
-  // LOAD MACHINE
-  // ==========================================
 
   const loadMachine = async () => {
     if (!machineId) {
@@ -100,15 +80,8 @@ export default function RechargeMachinePage() {
     try {
       setIsLoading(true);
 
-      // ========================================
-      // GET ALL MACHINES
-      // ========================================
-
-      const machines = await getMachines();
-
-      // ========================================
-      // FIND CURRENT MACHINE
-      // ========================================
+      const machines =
+        await getMachines();
 
       const selectedMachine =
         machines.find(
@@ -118,19 +91,16 @@ export default function RechargeMachinePage() {
 
       if (!selectedMachine) {
         setMachine(null);
-
         return;
       }
 
       setMachine(selectedMachine);
 
-      // ========================================
-      // GET LATEST MACHINE BALANCE
-      // ========================================
-
       try {
         const balanceData =
-          await getMachineBalance(machineId);
+          await getMachineBalance(
+            machineId,
+          );
 
         setMachineBalance(balanceData);
       } catch (balanceError) {
@@ -139,8 +109,6 @@ export default function RechargeMachinePage() {
           balanceError,
         );
 
-        // Don't stop the entire page
-        // if balance endpoint fails
         setMachineBalance(null);
       }
     } catch (error) {
@@ -162,32 +130,19 @@ export default function RechargeMachinePage() {
     }
   };
 
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
-
   useEffect(() => {
     void loadMachine();
   }, [machineId]);
 
-  // ==========================================
-  // RECHARGE MACHINE
-  // ==========================================
-
   const handleRecharge = async (
-    event: React.FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
 
     if (!machineId) {
       toast.error("Machine ID is missing");
-
       return;
     }
-
-    // ========================================
-    // VALIDATE EMPTY
-    // ========================================
 
     if (!amount.trim()) {
       toast.error(
@@ -199,10 +154,6 @@ export default function RechargeMachinePage() {
 
     const rechargeAmount =
       Number(amount);
-
-    // ========================================
-    // VALIDATE NUMBER
-    // ========================================
 
     if (
       Number.isNaN(rechargeAmount) ||
@@ -218,26 +169,12 @@ export default function RechargeMachinePage() {
     try {
       setIsSubmitting(true);
 
-      // ========================================
-      // API CALL
-      // POST /machines/:id/recharge
-      //
-      // Payload:
-      // {
-      //   amount: 2000
-      // }
-      // ========================================
-
       await rechargeMachine(
         machineId,
         {
           amount: rechargeAmount,
         },
       );
-
-      // ========================================
-      // SUCCESS
-      // ========================================
 
       toast.success(
         `Machine recharged successfully with ₹${rechargeAmount.toLocaleString(
@@ -246,10 +183,6 @@ export default function RechargeMachinePage() {
       );
 
       setAmount("");
-
-      // ========================================
-      // REFRESH MACHINE DATA
-      // ========================================
 
       await loadMachine();
     } catch (error) {
@@ -269,19 +202,11 @@ export default function RechargeMachinePage() {
     }
   };
 
-  // ==========================================
-  // QUICK AMOUNT
-  // ==========================================
-
   const handleQuickAmount = (
     value: number,
   ) => {
     setAmount(value.toString());
   };
-
-  // ==========================================
-  // FORMAT CURRENCY
-  // ==========================================
 
   const formatCurrency = (
     value: number,
@@ -294,10 +219,6 @@ export default function RechargeMachinePage() {
       },
     );
   };
-
-  // ==========================================
-  // LOADING STATE
-  // ==========================================
 
   if (isLoading) {
     return (
@@ -312,10 +233,6 @@ export default function RechargeMachinePage() {
       </div>
     );
   }
-
-  // ==========================================
-  // MACHINE NOT FOUND
-  // ==========================================
 
   if (!machine) {
     return (
@@ -348,10 +265,6 @@ export default function RechargeMachinePage() {
     );
   }
 
-  // ==========================================
-  // CALCULATIONS
-  // ==========================================
-
   const currentBalance =
     getCurrentBalance();
 
@@ -361,16 +274,8 @@ export default function RechargeMachinePage() {
   const newBalance =
     currentBalance + rechargeAmount;
 
-  // ==========================================
-  // UI
-  // ==========================================
-
   return (
     <div className="mx-auto w-full max-w-6xl">
-      {/* ======================================
-          HEADER
-      ====================================== */}
-
       <div className="mb-8">
         <button
           type="button"
@@ -406,19 +311,8 @@ export default function RechargeMachinePage() {
         </div>
       </div>
 
-      {/* ======================================
-          CONTENT GRID
-      ====================================== */}
-
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-
-        {/* ====================================
-            MACHINE INFORMATION
-        ==================================== */}
-
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          {/* HEADER */}
-
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50">
               <Monitor className="h-5 w-5 text-brand-purple" />
@@ -435,12 +329,7 @@ export default function RechargeMachinePage() {
             </div>
           </div>
 
-          {/* MACHINE DETAILS */}
-
           <div className="space-y-5">
-
-            {/* INSTITUTION */}
-
             <div className="flex items-start gap-3">
               <Building2 className="mt-0.5 h-4 w-4 text-gray-400" />
 
@@ -456,8 +345,6 @@ export default function RechargeMachinePage() {
               </div>
             </div>
 
-            {/* MACHINE ID */}
-
             <div className="flex items-start gap-3">
               <Monitor className="mt-0.5 h-4 w-4 text-gray-400" />
 
@@ -471,8 +358,6 @@ export default function RechargeMachinePage() {
                 </p>
               </div>
             </div>
-
-            {/* BLOCK */}
 
             <div className="flex items-start gap-3">
               <MapPin className="mt-0.5 h-4 w-4 text-gray-400" />
@@ -489,8 +374,6 @@ export default function RechargeMachinePage() {
               </div>
             </div>
 
-            {/* BLE ID */}
-
             <div className="flex items-start gap-3">
               <Bluetooth className="mt-0.5 h-4 w-4 text-gray-400" />
 
@@ -505,8 +388,6 @@ export default function RechargeMachinePage() {
                 </p>
               </div>
             </div>
-
-            {/* STATUS */}
 
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -529,10 +410,6 @@ export default function RechargeMachinePage() {
               </span>
             </div>
           </div>
-
-          {/* ====================================
-              CURRENT BALANCE
-          ==================================== */}
 
           <div className="mt-8 rounded-2xl bg-brand-purple p-5 text-white">
             <div className="flex items-center justify-between">
@@ -557,13 +434,7 @@ export default function RechargeMachinePage() {
           </div>
         </div>
 
-        {/* ====================================
-            RECHARGE FORM
-        ==================================== */}
-
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          {/* HEADER */}
-
           <div className="mb-7">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50">
@@ -582,16 +453,10 @@ export default function RechargeMachinePage() {
             </div>
           </div>
 
-          {/* FORM */}
-
           <form
             onSubmit={handleRecharge}
             className="space-y-6"
           >
-            {/* ==================================
-                AMOUNT INPUT
-            ================================== */}
-
             <div>
               <label
                 htmlFor="amount"
@@ -620,10 +485,6 @@ export default function RechargeMachinePage() {
                 />
               </div>
             </div>
-
-            {/* ==================================
-                QUICK AMOUNTS
-            ================================== */}
 
             <div>
               <p className="mb-3 text-sm font-semibold text-gray-700">
@@ -661,15 +522,9 @@ export default function RechargeMachinePage() {
               </div>
             </div>
 
-            {/* ==================================
-                RECHARGE SUMMARY
-            ================================== */}
-
             {amount &&
               rechargeAmount > 0 && (
                 <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
-                  {/* CURRENT */}
-
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
                       Current Balance
@@ -684,8 +539,6 @@ export default function RechargeMachinePage() {
                   </div>
 
                   <div className="my-3 border-t border-purple-100" />
-
-                  {/* RECHARGE */}
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
@@ -702,8 +555,6 @@ export default function RechargeMachinePage() {
 
                   <div className="my-3 border-t border-purple-100" />
 
-                  {/* NEW BALANCE */}
-
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-gray-900">
                       New Balance
@@ -718,10 +569,6 @@ export default function RechargeMachinePage() {
                   </div>
                 </div>
               )}
-
-            {/* ==================================
-                ACTIONS
-            ================================== */}
 
             <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
               <button

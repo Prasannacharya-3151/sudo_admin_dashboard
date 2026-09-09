@@ -12,7 +12,7 @@
 // ------------------------------------------
 
 export const SUDO_API_BASE_URL =
-  "https://servers-tale-sept-lighting.trycloudflare.com/api/v1";
+  "https://horses-switch-obligation-ash.trycloudflare.com/api/v1";
 
 
 // ------------------------------------------
