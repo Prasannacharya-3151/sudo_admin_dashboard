@@ -58,20 +58,27 @@ export interface UpdateInstitutionPayload {
 }
 
 // ==========================================
-// INSTITUTION STAFF ROLE
+// INSTITUTION STAFF
 // ==========================================
 
 export type InstitutionStaffRole =
   | "admin"
   | "staff";
 
-// ==========================================
-// INSTITUTION STAFF STATUS
-// ==========================================
-
 export type InstitutionStaffStatus =
   | "active"
   | "inactive";
+
+export interface InstitutionStaff {
+  id: string;
+  institution_id: string;
+  name: string;
+  email: string;
+  role: InstitutionStaffRole;
+  status: InstitutionStaffStatus;
+  created_at: string;
+  updated_at: string;
+}
 
 // ==========================================
 // CREATE INSTITUTION ADMIN
@@ -86,27 +93,16 @@ export interface CreateInstitutionAdminPayload {
 }
 
 // ==========================================
-// UPDATE INSTITUTION STAFF
-// PATCH /institution/:institutionId/staff/:staffId
+// INSTITUTION ADMINISTRATOR
+// GET /sudo-admin/institutions/:institutionId/administrator
 // ==========================================
 
-export interface UpdateInstitutionStaffPayload {
-  name?: string;
-  email?: string;
-  role?: InstitutionStaffRole;
-  status?: InstitutionStaffStatus;
-}
-
-// ==========================================
-// INSTITUTION STAFF
-// ==========================================
-
-export interface InstitutionStaff {
+export interface InstitutionAdministrator {
   id: string;
   institution_id: string;
   name: string;
   email: string;
-  role: InstitutionStaffRole;
+  role: "admin";
   status: InstitutionStaffStatus;
   created_at: string;
   updated_at: string;
@@ -127,7 +123,6 @@ export interface InstitutionStats {
 
 // ==========================================
 // INSTITUTION DETAILS
-// GET /sudo-admin/institutions/:institutionId
 // ==========================================
 
 export interface InstitutionDetails
@@ -145,8 +140,8 @@ export type InstitutionListResponse =
 export type InstitutionResponse =
   ApiResponse<InstitutionDetails>;
 
-export type InstitutionStaffListResponse =
-  ApiResponse<InstitutionStaff[]>;
-
 export type InstitutionStaffResponse =
   ApiResponse<InstitutionStaff>;
+
+export type InstitutionAdministratorResponse =
+  ApiResponse<InstitutionAdministrator>;

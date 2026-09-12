@@ -6,14 +6,17 @@ import {
 
 import PublicRoute from "./PublicRoute";
 import PrivateRoute from "./PrivateRoute";
+
 import SudoLayout from "../components/SudoLayout";
 
 import SudoLogin from "../pages/auth/SudoLogin";
 import SudoSignup from "../pages/auth/SudoSignup";
 
 import SudoDashboard from "../pages/sudo/SudoDashboard";
+
 import Institutions from "../pages/sudo/Institution/Institutions";
 import InstitutionDetailsPage from "../pages/sudo/Institution/InstitutionDetailsPage";
+
 import Settings from "../pages/sudo/Settings";
 
 import KiosksPage from "../pages/sudo/kiosks/KiosksPage";
@@ -29,43 +32,30 @@ import MachinesPage from "../pages/sudo/machines/MachinesPage";
 import CreateMachinePage from "../pages/sudo/machines/CreateMachinePage";
 import MachineDetailsPage from "../pages/sudo/machines/MachineDetailsPage";
 import RechargeMachinePage from "../pages/sudo/machines/RechargeMachinePage";
-// import CreateUserPage from "../pages/sudo/machines/CreateUserPage";
-// import UsersPage from "../pages/sudo/machines/UsersPage";
 
 import RFIDCardsPage from "../pages/sudo/rfid-cards/RFIDCardsPage";
 import RFIDCardDetailsPage from "../pages/sudo/rfid-cards/RFIDCardDetailsPage";
 
 import TransactionsPage from "../pages/sudo/transactions/TransactionsPage";
 
+import SudoAnalytics from "../pages/sudo/analytics/SudoAnalytics";
+import PrintHistory from "../pages/sudo/analytics/PrintHistory";
+import KioskAnalytics from "../pages/sudo/analytics/KioskAnalytics";
+
 export default function SudoRouter() {
   return (
     <Routes>
-      <Route element={<PublicRoute />}>
-        <Route
-          path="signup"
-          element={<SudoSignup />}
-        />
 
-        <Route
-          path="login"
-          element={<SudoLogin />}
-        />
+      <Route element={<PublicRoute />}>
+        <Route path="signup" element={<SudoSignup />} />
+        <Route path="login" element={<SudoLogin />} />
       </Route>
 
       <Route element={<PrivateRoute />}>
         <Route element={<SudoLayout />}>
-          <Route
-            path="dashboard"
-            element={<SudoDashboard />}
-          />
-
-          <Route
-            path="institutions"
-            element={<Institutions />}
-          />
-
-          <Route
-            path="institutions/:institutionId"
+          <Route path="dashboard" element={<SudoDashboard />} />
+          <Route path="institutions" element={<Institutions />} /> 
+          <Route path="institutions/:institutionId"
             element={<InstitutionDetailsPage />}
           />
 
@@ -129,16 +119,6 @@ export default function SudoRouter() {
             element={<RechargeMachinePage />}
           />
 
-          {/* <Route
-            path="users"
-            element={<UsersPage />}
-          />
-
-          <Route
-            path="users/create"
-            element={<CreateUserPage />}
-          /> */}
-
           <Route
             path="rfid-cards"
             element={<RFIDCardsPage />}
@@ -153,7 +133,22 @@ export default function SudoRouter() {
             path="transactions"
             element={<TransactionsPage />}
           />
+       
+          <Route
+            path="analytics/sudo-analytics"
+            element={<SudoAnalytics />}
+          />
 
+          <Route
+            path="analytics/print-history"
+            element={<PrintHistory />}
+          />
+
+          <Route
+            path="analytics/kiosks"
+            element={<KioskAnalytics />}
+          />
+   
           <Route
             path="settings"
             element={<Settings />}
@@ -180,6 +175,7 @@ export default function SudoRouter() {
           />
         }
       />
+
     </Routes>
   );
 }

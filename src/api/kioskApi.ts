@@ -73,8 +73,6 @@ export const createKiosk = async (
   return unwrapResponse<Kiosk>(result);
 };
 
-// ⏳ GET /sudo-admin/kiosks not built yet.
-// Fallback: public GET /kiosk/ (no auth), filter client-side.
 export const getKiosks = async (
   filters?: KioskListFilters,
 ): Promise<Kiosk[]> => {
@@ -117,8 +115,6 @@ export const getKioskById = async (
   return unwrapResponse<KioskDetails>(result);
 };
 
-// ⏳ PATCH /sudo-admin/kiosks/{kioskId} — route not built on backend yet.
-// Will 404 until it ships; keep the edit page's submit disabled or catch this.
 export const updateKiosk = async (
   accessToken: string,
   kioskId: string,
@@ -136,7 +132,6 @@ export const updateKiosk = async (
   return unwrapResponse<Kiosk>(result);
 };
 
-// ⏳ DELETE /sudo-admin/kiosks/{kioskId} — route not built on backend yet.
 export const deleteKiosk = async (accessToken: string, kioskId: string): Promise<void> => {
   const response = await fetch(`${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}`, {
     method: "DELETE",
@@ -301,11 +296,6 @@ export const removeKioskPrinter = async (
   if (!response.ok) throw new Error(await getErrorMessage(response));
 };
 
-// ==========================================
-// PAIRING — machine-facing (called from the kiosk desktop app, not the admin dashboard)
-// ==========================================
-
-// POST /kiosks/pair — NO auth. kioskId is NOT in the URL; lookup is via pairing_code.
 export const pairKioskMachine = async (
   payload: PairKioskPayload,
 ): Promise<PairKioskResponse> => {
@@ -337,7 +327,6 @@ export const authenticateKioskMachine = async (
   return unwrapResponse<KioskAuthResponse>(result);
 };
 
-// POST /sudo-admin/kiosks/{kioskId}/unpair — returns a fresh pairing_code, keep it, don't discard
 export const unpairKiosk = async (
   accessToken: string,
   kioskId: string,
@@ -353,9 +342,6 @@ export const unpairKiosk = async (
   return unwrapResponse<UnpairKioskResponse>(result);
 };
 
-// ⏳ PLACEHOLDER — GET /sudo-admin/kiosks/{kioskId}/pairing
-// Not in the confirmed spec yet. Swap the path/method below once backend
-// confirms the real route — everything that calls this function stays the same.
 export const getKioskPairingStatus = async (
   accessToken: string,
   kioskId: string,
@@ -371,9 +357,6 @@ export const getKioskPairingStatus = async (
   return unwrapResponse<KioskPairingStatusResponse>(result);
 };
 
-// ⏳ PLACEHOLDER — POST /sudo-admin/kiosks/{kioskId}/pair
-// Not in the confirmed spec yet (the documented /kiosks/pair is machine-facing,
-// no auth, no kioskId). Swap this once backend confirms an admin-side route.
 export const adminPairKiosk = async (
   accessToken: string,
   kioskId: string,
@@ -390,8 +373,3 @@ export const adminPairKiosk = async (
   const result: ApiResponse<KioskPairingStatusResponse> = await response.json();
   return unwrapResponse<KioskPairingStatusResponse>(result);
 };
-
-// NOTE: KioskPairingPage can now use getKioskPairingStatus() once the backend
-// route is confirmed. Until then, the fallback is still valid: read pairing
-// state straight off Kiosk / KioskDetails — paired_at === null means
-// "awaiting pairing"; paired_at set means paired.

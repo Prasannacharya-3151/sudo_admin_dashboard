@@ -36,17 +36,16 @@ import { useSudoAuth } from "../../../context/SudoAuthContext";
 import {
   createInstitutionAdmin,
   deleteInstitution,
-  deleteInstitutionStaff,
+  deleteInstitutionAdministrator,
+  getInstitutionAdministrator,
   getInstitutionById,
-  getInstitutionStaff,
   updateInstitution,
-  updateInstitutionStaff,
 } from "../../../api/institutionApi";
 
 import type {
   CreateInstitutionAdminPayload,
+  InstitutionAdministrator,
   InstitutionDetails,
-  InstitutionStaff,
   InstitutionStatus,
   UpdateInstitutionPayload,
 } from "../../../types/institution";
@@ -83,7 +82,7 @@ const statusDot: Record<
 };
 
 // ==========================================
-// STATUS BADGE
+// INSTITUTION STATUS BADGE
 // ==========================================
 
 function InstitutionStatusBadge({
@@ -97,36 +96,6 @@ function InstitutionStatusBadge({
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${statusDot[status]}`}
-      />
-
-      {status}
-    </span>
-  );
-}
-
-// ==========================================
-// STAFF STATUS BADGE
-// ==========================================
-
-function StaffStatusBadge({
-  status,
-}: {
-  status: InstitutionStaff["status"];
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${
-        status === "active"
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200"
-          : "bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-200"
-      }`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          status === "active"
-            ? "bg-emerald-500"
-            : "bg-gray-400"
-        }`}
       />
 
       {status}
@@ -254,7 +223,7 @@ function FormInput({
 }
 
 // ==========================================
-// EDIT INSTITUTION
+// EDIT INSTITUTION MODAL
 // ==========================================
 
 function EditInstitutionModal({
@@ -275,10 +244,9 @@ function EditInstitutionModal({
   ) => {
     event.preventDefault();
 
-    const formData =
-      new FormData(
-        event.currentTarget,
-      );
+    const formData = new FormData(
+      event.currentTarget,
+    );
 
     const payload: UpdateInstitutionPayload = {
       name: String(
@@ -290,7 +258,9 @@ function EditInstitutionModal({
       ).trim(),
 
       status:
-        formData.get("status") as InstitutionStatus,
+        formData.get(
+          "status",
+        ) as InstitutionStatus,
 
       contact_email: String(
         formData.get("contact_email") || "",
@@ -434,7 +404,7 @@ function EditInstitutionModal({
 }
 
 // ==========================================
-// ADD ADMIN
+// ADD ADMINISTRATOR MODAL
 // ==========================================
 
 function AddAdministratorModal({
@@ -453,10 +423,9 @@ function AddAdministratorModal({
   ) => {
     event.preventDefault();
 
-    const formData =
-      new FormData(
-        event.currentTarget,
-      );
+    const formData = new FormData(
+      event.currentTarget,
+    );
 
     const payload: CreateInstitutionAdminPayload = {
       name: String(
@@ -652,22 +621,22 @@ type PendingAction =
       institution: InstitutionDetails;
     }
   | {
-      type: "staff-status";
-      staff: InstitutionStaff;
-    }
-  | {
-      type: "staff-delete";
-      staff: InstitutionStaff;
+      type: "administrator-delete";
+      administrator: InstitutionAdministrator;
     }
   | null;
 
 // ==========================================
-// MAIN PAGE
+// ACTIVE TAB
 // ==========================================
 
 type ActiveTab =
   | "overview"
   | "administrators";
+
+// ==========================================
+// MAIN PAGE
+// ==========================================
 
 export default function InstitutionDetailsPage() {
   const navigate = useNavigate();
@@ -677,8 +646,11 @@ export default function InstitutionDetailsPage() {
       institutionId: string;
     }>();
 
-  const { accessToken } =
-    useSudoAuth();
+  const { accessToken } = useSudoAuth();
+
+  // ==========================================
+  // STATE
+  // ==========================================
 
   const [
     institution,
@@ -687,11 +659,13 @@ export default function InstitutionDetailsPage() {
     null,
   );
 
+
+  // NEW: PRIMARY ADMINISTRATOR
   const [
-    staff,
-    setStaff,
-  ] = useState<InstitutionStaff[]>(
-    [],
+    administrator,
+    setAdministrator,
+  ] = useState<InstitutionAdministrator | null>(
+    null,
   );
 
   const [
@@ -699,9 +673,10 @@ export default function InstitutionDetailsPage() {
     setIsLoading,
   ] = useState(true);
 
+
   const [
-    isStaffLoading,
-    setIsStaffLoading,
+    isAdministratorLoading,
+    setIsAdministratorLoading,
   ] = useState(false);
 
   const [
@@ -777,10 +752,10 @@ export default function InstitutionDetailsPage() {
   };
 
   // ==========================================
-  // LOAD STAFF
+  // LOAD PRIMARY ADMINISTRATOR
   // ==========================================
 
-  const loadStaff = async () => {
+  const loadAdministrator = async () => {
     if (
       !accessToken ||
       !institutionId
@@ -789,25 +764,25 @@ export default function InstitutionDetailsPage() {
     }
 
     try {
-      setIsStaffLoading(true);
+      setIsAdministratorLoading(true);
 
       const data =
-        await getInstitutionStaff(
+        await getInstitutionAdministrator(
           institutionId,
           accessToken,
         );
 
-      setStaff(data);
+      setAdministrator(data);
     } catch (error) {
       console.error(error);
 
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to load administrators",
-      );
+      /*
+       * If there is no administrator assigned,
+       * keep the card in the empty state.
+       */
+      setAdministrator(null);
     } finally {
-      setIsStaffLoading(false);
+      setIsAdministratorLoading(false);
     }
   };
 
@@ -823,7 +798,7 @@ export default function InstitutionDetailsPage() {
   ]);
 
   // ==========================================
-  // STAFF LOAD
+  // ADMINISTRATOR TAB LOAD
   // ==========================================
 
   useEffect(() => {
@@ -831,7 +806,7 @@ export default function InstitutionDetailsPage() {
       activeTab ===
       "administrators"
     ) {
-      void loadStaff();
+      void loadAdministrator();
     }
   }, [
     activeTab,
@@ -854,6 +829,7 @@ export default function InstitutionDetailsPage() {
         toast.error(
           "Unauthorized. Please login again.",
         );
+
         return;
       }
 
@@ -887,7 +863,7 @@ export default function InstitutionDetailsPage() {
     };
 
   // ==========================================
-  // ADD ADMIN
+  // ADD ADMINISTRATOR
   // ==========================================
 
   const handleCreateAdmin =
@@ -901,6 +877,7 @@ export default function InstitutionDetailsPage() {
         toast.error(
           "Unauthorized. Please login again.",
         );
+
         return;
       }
 
@@ -919,7 +896,7 @@ export default function InstitutionDetailsPage() {
 
         setIsAddAdminOpen(false);
 
-        await loadStaff();
+        await loadAdministrator();
       } catch (error) {
         console.error(error);
 
@@ -930,6 +907,58 @@ export default function InstitutionDetailsPage() {
         );
       } finally {
         setIsAdminCreating(false);
+      }
+    };
+
+  // ==========================================
+  // DELETE PRIMARY ADMINISTRATOR
+  // ==========================================
+
+  const handleDeleteAdministrator =
+    async () => {
+      if (
+        !accessToken ||
+        !institutionId ||
+        !administrator
+      ) {
+        toast.error(
+          "Administrator information is unavailable.",
+        );
+
+        return;
+      }
+
+      try {
+        setIsActionLoading(true);
+
+        await deleteInstitutionAdministrator(
+          institutionId,
+          accessToken,
+        );
+
+        toast.success(
+          "Administrator deleted successfully",
+        );
+
+        setAdministrator(null);
+
+        /*
+         * Refresh the existing staff list
+         * because the administrator may also
+         * be present in the staff collection.
+         */
+
+        setPendingAction(null);
+      } catch (error) {
+        console.error(error);
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to delete administrator",
+        );
+      } finally {
+        setIsActionLoading(false);
       }
     };
 
@@ -945,6 +974,7 @@ export default function InstitutionDetailsPage() {
         toast.error(
           "Unauthorized. Please login again.",
         );
+
         return;
       }
 
@@ -998,6 +1028,7 @@ export default function InstitutionDetailsPage() {
         toast.error(
           "Unauthorized. Please login again.",
         );
+
         return;
       }
 
@@ -1028,110 +1059,6 @@ export default function InstitutionDetailsPage() {
           error instanceof Error
             ? error.message
             : "Failed to delete institution",
-        );
-      } finally {
-        setIsActionLoading(false);
-      }
-    };
-
-  // ==========================================
-  // TOGGLE STAFF
-  // ==========================================
-
-  const handleToggleStaffStatus =
-    async (
-      target: InstitutionStaff,
-    ) => {
-      if (
-        !accessToken ||
-        !institutionId
-      ) {
-        toast.error(
-          "Unauthorized. Please login again.",
-        );
-        return;
-      }
-
-      const nextStatus =
-        target.status === "active"
-          ? "inactive"
-          : "active";
-
-      try {
-        setIsActionLoading(true);
-
-        await updateInstitutionStaff(
-          institutionId,
-          target.id,
-          {
-            status: nextStatus,
-          },
-          accessToken,
-        );
-
-        toast.success(
-          nextStatus === "active"
-            ? "Administrator activated"
-            : "Administrator deactivated",
-        );
-
-        setPendingAction(null);
-
-        await loadStaff();
-      } catch (error) {
-        console.error(error);
-
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to update administrator",
-        );
-      } finally {
-        setIsActionLoading(false);
-      }
-    };
-
-  // ==========================================
-  // DELETE STAFF
-  // ==========================================
-
-  const handleDeleteStaff =
-    async (
-      target: InstitutionStaff,
-    ) => {
-      if (
-        !accessToken ||
-        !institutionId
-      ) {
-        toast.error(
-          "Unauthorized. Please login again.",
-        );
-        return;
-      }
-
-      try {
-        setIsActionLoading(true);
-
-        await deleteInstitutionStaff(
-          institutionId,
-          target.id,
-          accessToken,
-        );
-
-        toast.success(
-          "Administrator removed successfully",
-        );
-
-        setPendingAction(null);
-
-        await loadStaff();
-      } catch (error) {
-        console.error(error);
-
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to remove administrator",
         );
       } finally {
         setIsActionLoading(false);
@@ -1179,26 +1106,19 @@ export default function InstitutionDetailsPage() {
           className="mt-6 flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <ArrowLeft className="h-4 w-4" />
+
           Back to Institutions
         </button>
       </div>
     );
   }
 
+  // ==========================================
+  // DERIVED DATA
+  // ==========================================
+
   const stats =
     institution.stats;
-
-  const activeStaffCount =
-    staff.filter(
-      (member) =>
-        member.status === "active",
-    ).length;
-
-  const adminCount =
-    staff.filter(
-      (member) =>
-        member.role === "admin",
-    ).length;
 
   // ==========================================
   // RENDER
@@ -1262,7 +1182,9 @@ export default function InstitutionDetailsPage() {
                 <span>•</span>
 
                 <span className="break-all">
-                  {institution.contact_email}
+                  {
+                    institution.contact_email
+                  }
                 </span>
               </div>
             </div>
@@ -1277,6 +1199,7 @@ export default function InstitutionDetailsPage() {
               className="flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               <Edit3 className="h-4 w-4" />
+
               Edit
             </button>
 
@@ -1443,6 +1366,7 @@ export default function InstitutionDetailsPage() {
                   className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   <Edit3 className="h-4 w-4" />
+
                   Edit
                 </button>
               </div>
@@ -1574,6 +1498,7 @@ export default function InstitutionDetailsPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4" />
+
                   Delete Institution
                 </button>
               </div>
@@ -1666,191 +1591,124 @@ export default function InstitutionDetailsPage() {
               className="flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
+
               Add Administrator
             </button>
           </div>
 
-          {/* SUMMARY */}
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard
-              icon={
-                <Users className="h-5 w-5" />
-              }
-              label="Total Accounts"
-              value={
-                staff.length
-              }
-            />
-
-            <StatCard
-              icon={
-                <Check className="h-5 w-5" />
-              }
-              label="Active Accounts"
-              value={
-                activeStaffCount
-              }
-            />
-
-            <StatCard
-              icon={
-                <ShieldCheck className="h-5 w-5" />
-              }
-              label="Administrators"
-              value={
-                adminCount
-              }
-            />
-          </div>
-
-          {/* STAFF LIST */}
+          {/* ================================== */}
+          {/* PRIMARY ADMINISTRATOR */}
+          {/* ================================== */}
 
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            {isStaffLoading ? (
-              <div className="flex min-h-[320px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-              </div>
-            ) : staff.length ===
-              0 ? (
-              <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50">
-                  <Users className="h-7 w-7 text-brand-purple" />
+            <div className="border-b border-gray-100 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50">
+                  <ShieldCheck className="h-5 w-5 text-brand-purple" />
                 </div>
 
-                <h3 className="mt-4 font-semibold text-gray-900">
-                  No administrators found
+                <div>
+                  <h3 className="font-bold text-gray-900">
+                    Institution Administrator
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Primary administrator assigned to this institution.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {isAdministratorLoading ? (
+              <div className="flex min-h-[150px] items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
+              </div>
+            ) : administrator ? (
+              <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-50">
+                    <User className="h-5 w-5 text-brand-purple" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-gray-900">
+                      {administrator.name}
+                    </p>
+
+                    <p className="mt-1 truncate text-sm text-gray-500">
+                      {administrator.email}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold capitalize text-brand-purple">
+                        {administrator.role}
+                      </span>
+
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                          administrator.status === "active"
+                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200"
+                            : "bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-200"
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            administrator.status === "active"
+                              ? "bg-emerald-500"
+                              : "bg-gray-400"
+                          }`}
+                        />
+                        {administrator.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isActionLoading}
+                  onClick={() =>
+                    setPendingAction({
+                      type: "administrator-delete",
+                      administrator,
+                    })
+                  }
+                  className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+
+                  Remove Administrator
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50">
+                  <ShieldCheck className="h-5 w-5 text-gray-400" />
+                </div>
+
+                <h3 className="mt-3 text-sm font-semibold text-gray-900">
+                  No administrator assigned
                 </h3>
 
-                <p className="mt-1 max-w-sm text-sm text-gray-500">
-                  Add an administrator to start managing this institution.
+                <p className="mt-1 text-sm text-gray-500">
+                  Create an administrator for this institution.
                 </p>
 
                 <button
                   type="button"
                   onClick={() =>
-                    setIsAddAdminOpen(
-                      true,
-                    )
+                    setIsAddAdminOpen(true)
                   }
-                  className="mt-5 flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  className="mt-4 flex items-center gap-2 rounded-xl bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
                 >
                   <Plus className="h-4 w-4" />
+
                   Add Administrator
                 </button>
               </div>
-            ) : (
-              <>
-                {/* TABLE HEADER */}
-
-                <div className="hidden grid-cols-[minmax(240px,1.5fr)_150px_130px_200px] items-center gap-4 border-b border-gray-100 bg-gray-50/70 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400 md:grid">
-                  <span>Administrator</span>
-                  <span>Role</span>
-                  <span>Status</span>
-                  <span className="text-right">
-                    Actions
-                  </span>
-                </div>
-
-                <div className="divide-y divide-gray-100">
-                  {staff.map(
-                    (member) => (
-                      <div
-                        key={
-                          member.id
-                        }
-                        className="flex flex-col gap-4 px-5 py-5 transition hover:bg-gray-50 md:grid md:grid-cols-[minmax(240px,1.5fr)_150px_130px_200px] md:items-center md:gap-4 md:px-6"
-                      >
-                        {/* USER */}
-
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50">
-                            <User className="h-5 w-5 text-brand-purple" />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-gray-900">
-                              {
-                                member.name
-                              }
-                            </p>
-
-                            <p className="mt-1 truncate text-sm text-gray-500">
-                              {
-                                member.email
-                              }
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* ROLE */}
-
-                        <div>
-                          <span className="inline-flex rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold capitalize text-brand-purple">
-                            {
-                              member.role
-                            }
-                          </span>
-                        </div>
-
-                        {/* STATUS */}
-
-                        <div>
-                          <StaffStatusBadge
-                            status={
-                              member.status
-                            }
-                          />
-                        </div>
-
-                        {/* ACTIONS */}
-
-                        <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
-                          <button
-                            type="button"
-                            disabled={
-                              isActionLoading
-                            }
-                            onClick={() =>
-                              setPendingAction({
-                                type: "staff-status",
-                                staff: member,
-                              })
-                            }
-                            className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-white disabled:opacity-50"
-                          >
-                            <Power className="h-3.5 w-3.5" />
-
-                            {member.status ===
-                            "active"
-                              ? "Deactivate"
-                              : "Activate"}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={
-                              isActionLoading
-                            }
-                            onClick={() =>
-                              setPendingAction({
-                                type: "staff-delete",
-                                staff: member,
-                              })
-                            }
-                            className="flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </>
             )}
           </div>
+
         </div>
       )}
 
@@ -1961,62 +1819,21 @@ export default function InstitutionDetailsPage() {
       )}
 
       {/* ====================================== */}
-      {/* STAFF STATUS CONFIRM */}
+      {/* PRIMARY ADMINISTRATOR DELETE CONFIRM */}
       {/* ====================================== */}
 
       {pendingAction?.type ===
-        "staff-status" && (
-        <ConfirmDialog
-          title={
-            pendingAction.staff
-              .status === "active"
-              ? "Deactivate administrator?"
-              : "Activate administrator?"
-          }
-          message={`This will ${
-            pendingAction.staff
-              .status === "active"
-              ? "deactivate"
-              : "activate"
-          } "${pendingAction.staff.name}".`}
-          confirmLabel={
-            pendingAction.staff
-              .status === "active"
-              ? "Deactivate"
-              : "Activate"
-          }
-          isLoading={
-            isActionLoading
-          }
-          onConfirm={() =>
-            void handleToggleStaffStatus(
-              pendingAction.staff,
-            )
-          }
-          onCancel={() =>
-            setPendingAction(null)
-          }
-        />
-      )}
-
-      {/* ====================================== */}
-      {/* STAFF DELETE CONFIRM */}
-      {/* ====================================== */}
-
-      {pendingAction?.type ===
-        "staff-delete" && (
+        "administrator-delete" && (
         <ConfirmDialog
           title="Remove administrator?"
-          message={`This will remove "${pendingAction.staff.name}" from this institution.`}
-          confirmLabel="Remove"
+          message={`This will remove "${pendingAction.administrator.name}" as the administrator of this institution.`}
+          confirmLabel="Remove Administrator"
           isDangerous
           isLoading={
             isActionLoading
           }
           onConfirm={() =>
-            void handleDeleteStaff(
-              pendingAction.staff,
-            )
+            void handleDeleteAdministrator()
           }
           onCancel={() =>
             setPendingAction(null)

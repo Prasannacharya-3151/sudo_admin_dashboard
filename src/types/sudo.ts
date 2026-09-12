@@ -1,14 +1,7 @@
-// ==========================================
-// COMMON API RESPONSE
-// ==========================================
 
 export interface ApiResponse<T> {
   data: T;
 }
-
-// ==========================================
-// SUDO ADMIN
-// ==========================================
 
 export interface SudoAdmin {
   id: string;
@@ -19,28 +12,16 @@ export interface SudoAdmin {
   updated_at: string;
 }
 
-// ==========================================
-// SIGNUP
-// ==========================================
-
 export interface SudoSignupPayload {
   name: string;
   email: string;
   password: string;
 }
 
-// ==========================================
-// LOGIN
-// ==========================================
-
 export interface SudoLoginPayload {
   email: string;
   password: string;
 }
-
-// ==========================================
-// LOGIN DATA
-// ==========================================
 
 export interface SudoLoginData {
   access_token: string;
@@ -50,38 +31,26 @@ export interface SudoLoginData {
   admin: SudoAdmin;
 }
 
-// ==========================================
-// LOGIN RESPONSE
-// ==========================================
-
 export type SudoLoginResponse =
   ApiResponse<SudoLoginData>;
-
-// ==========================================
-// LOGOUT
-// ==========================================
 
 export interface SudoLogoutPayload {
   refresh_token: string;
 }
 
-// ==========================================
-// AUTH CONTEXT
-// ==========================================
-
 export interface SudoAuthContextType {
   admin: SudoAdmin | null;
 
-  // Access token used by all sudo protected APIs
   accessToken: string | null;
 
-  // Authentication state
+  refreshToken: string | null;
+
+  expiresIn: number | null;
+
   isAuthenticated: boolean;
 
-  // Initial auth verification loading state
   isLoading: boolean;
 
-  // Auth actions
   signup: (
     payload: SudoSignupPayload,
   ) => Promise<void>;

@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   Building2,
   Monitor,
-  Users,
   Settings,
   LogOut,
   X,
@@ -10,6 +9,9 @@ import {
   CreditCard,
   ReceiptText,
   Cpu,
+  BarChart3,
+  History,
+  ChartNoAxesCombined,
 } from "lucide-react";
 
 import {
@@ -18,7 +20,6 @@ import {
 } from "react-router-dom";
 
 import { useState } from "react";
-
 import { toast } from "sonner";
 
 import { useSudoAuth } from "../context/SudoAuthContext";
@@ -82,6 +83,33 @@ const rfidNavigation = [
     name: "Transactions",
     path: "/sudo/transactions",
     icon: ReceiptText,
+  },
+];
+
+// ==========================================
+// ANALYTICS NAVIGATION
+// ==========================================
+
+// ==========================================
+// ANALYTICS NAVIGATION
+// ==========================================
+
+const analyticsNavigation = [
+  {
+    name: "Overview",
+    path: "/sudo/analytics/sudo-analytics",
+    icon: BarChart3,
+  
+  },
+  {
+    name: "Print History",
+    path: "/sudo/analytics/print-history",
+    icon: History,
+  },
+  {
+    name: "Kiosk Analytics",
+    path: "/sudo/analytics/kiosks",
+    icon: ChartNoAxesCombined,
   },
 ];
 
@@ -182,6 +210,10 @@ export default function SudoSidebar({
     });
   };
 
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <>
       {/* ======================================
@@ -241,7 +273,7 @@ export default function SudoSidebar({
         ====================================== */}
 
         <div className="flex-1 overflow-y-auto px-4 py-6">
-          
+
           {/* ======================================
               MAIN NAVIGATION
           ====================================== */}
@@ -272,6 +304,20 @@ export default function SudoSidebar({
 
           <nav className="space-y-2">
             {renderNavigation(rfidNavigation)}
+          </nav>
+
+          {/* ======================================
+              ANALYTICS
+          ====================================== */}
+
+          <p className="mb-3 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-white/60">
+            Analytics
+          </p>
+
+          <nav className="space-y-2">
+            {renderNavigation(
+              analyticsNavigation,
+            )}
           </nav>
 
           {/* ======================================

@@ -5,10 +5,10 @@ import type {
   Institution,
   InstitutionDetails,
   InstitutionStaff,
+  InstitutionAdministrator,
   CreateInstitutionPayload,
   CreateInstitutionAdminPayload,
   UpdateInstitutionPayload,
-  UpdateInstitutionStaffPayload,
 } from "../types/institution";
 
 // ==========================================
@@ -227,18 +227,18 @@ export const createInstitutionAdmin = async (
 };
 
 // ==========================================
-// GET ALL INSTITUTION STAFF
-// GET /institution/:institutionId/staff
+// GET INSTITUTION ADMINISTRATOR
+// GET /sudo-admin/institutions/:institutionId/administrator
 // ==========================================
 
-export const getInstitutionStaff = async (
+export const getInstitutionAdministrator = async (
   institutionId: string,
   accessToken: string,
-): Promise<InstitutionStaff[]> => {
+): Promise<InstitutionAdministrator> => {
   const response = await fetch(
-    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+    `${SUDO_API_BASE_URL}/sudo-admin/institutions/${encodeURIComponent(
       institutionId,
-    )}/staff`,
+    )}/administrator`,
     {
       method: "GET",
       headers: getAuthHeaders(accessToken),
@@ -251,92 +251,25 @@ export const getInstitutionStaff = async (
     );
   }
 
-  const result: ApiResponse<InstitutionStaff[]> =
+  const result: ApiResponse<InstitutionAdministrator> =
     await response.json();
 
   return result.data;
 };
 
 // ==========================================
-// GET SINGLE STAFF
-// GET /institution/:institutionId/staff/:staffId
+// DELETE INSTITUTION ADMINISTRATOR
+// DELETE /sudo-admin/institutions/:institutionId/administrator
 // ==========================================
 
-export const getInstitutionStaffById = async (
+export const deleteInstitutionAdministrator = async (
   institutionId: string,
-  staffId: string,
-  accessToken: string,
-): Promise<InstitutionStaff> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
-      institutionId,
-    )}/staff/${encodeURIComponent(staffId)}`,
-    {
-      method: "GET",
-      headers: getAuthHeaders(accessToken),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result: ApiResponse<InstitutionStaff> =
-    await response.json();
-
-  return result.data;
-};
-
-// ==========================================
-// UPDATE INSTITUTION STAFF
-// PATCH /institution/:institutionId/staff/:staffId
-// ==========================================
-
-export const updateInstitutionStaff = async (
-  institutionId: string,
-  staffId: string,
-  payload: UpdateInstitutionStaffPayload,
-  accessToken: string,
-): Promise<InstitutionStaff> => {
-  const response = await fetch(
-    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
-      institutionId,
-    )}/staff/${encodeURIComponent(staffId)}`,
-    {
-      method: "PATCH",
-      headers: getAuthHeaders(accessToken),
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result: ApiResponse<InstitutionStaff> =
-    await response.json();
-
-  return result.data;
-};
-
-// ==========================================
-// DELETE INSTITUTION STAFF
-// DELETE /institution/:institutionId/staff/:staffId
-// ==========================================
-
-export const deleteInstitutionStaff = async (
-  institutionId: string,
-  staffId: string,
   accessToken: string,
 ): Promise<void> => {
   const response = await fetch(
-    `${SUDO_API_BASE_URL}/institution/${encodeURIComponent(
+    `${SUDO_API_BASE_URL}/sudo-admin/institutions/${encodeURIComponent(
       institutionId,
-    )}/staff/${encodeURIComponent(staffId)}`,
+    )}/administrator`,
     {
       method: "DELETE",
       headers: getAuthHeaders(accessToken),

@@ -132,22 +132,6 @@ export const getMachines = async (): Promise<
   );
 };
 
-// ==========================================
-// CREATE MACHINE
-//
-// POST /machines
-//
-// Expected Request:
-//
-// {
-//   institution_id: "<uuid>",
-//   institution_name: "ABC College",
-//   recharge_machine_block: "Block A",
-//   ble_id: "BLE-001",
-//   initial_balance: 5000
-// }
-// ==========================================
-
 export const createMachine = async (
   payload: CreateMachinePayload,
 ): Promise<RechargeMachine> => {

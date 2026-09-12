@@ -1,8 +1,16 @@
-import { Navigate, Outlet } from "react-router-dom";
+
+import {
+  Navigate,
+  Outlet,
+} from "react-router-dom";
+
 import { useSudoAuth } from "../context/SudoAuthContext";
 
 export default function PrivateRoute() {
-  const { isAuthenticated, isLoading } = useSudoAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+  } = useSudoAuth();
 
   if (isLoading) {
     return (

@@ -4,7 +4,6 @@ import {
   Users,
   Activity,
   ArrowUpRight,
-  Plus,
   MoreHorizontal,
 } from "lucide-react";
 
@@ -42,7 +41,6 @@ export default function SudoDashboard() {
       {/* HEADER */}
 
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-
         <div>
 
           <h1 className="mt-1 text-3xl font-bold text-[#1A1426] lg:text-4xl">
@@ -53,27 +51,12 @@ export default function SudoDashboard() {
             Monitor and manage the complete PrintPoint
             platform from one place.
           </p>
-
         </div>
-
-        <button
-          type="button"
-          className="flex items-center justify-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6B3CE0]"
-        >
-          <Plus className="h-4 w-4" />
-
-          Add Institution
-        </button>
-
       </div>
 
-      {/* STATS */}
-
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
         {stats.map((stat) => {
           const Icon = stat.icon;
-
           return (
             <div
               key={stat.title}
@@ -116,10 +99,7 @@ export default function SudoDashboard() {
 
       <div className="grid gap-6 xl:grid-cols-3">
 
-        {/* Recent Institutions */}
-
         <div className="rounded-2xl border border-gray-200 bg-white xl:col-span-2">
-
           <div className="flex items-center justify-between border-b border-gray-100 p-6">
 
             <div>
@@ -133,22 +113,17 @@ export default function SudoDashboard() {
               </p>
 
             </div>
-
             <button
               type="button"
               className="text-sm font-semibold text-brand-purple"
             >
               View all
             </button>
-
           </div>
 
           <div className="flex min-h-[280px] flex-col items-center justify-center px-6 text-center">
-
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-purple/10">
-
               <Building2 className="h-8 w-8 text-brand-purple" />
-
             </div>
 
             <h3 className="mt-5 font-semibold text-brand-dark">
@@ -159,9 +134,7 @@ export default function SudoDashboard() {
               Registered institutions will appear here
               once they are created.
             </p>
-
           </div>
-
         </div>
 
         {/* Quick Actions */}
@@ -177,14 +150,12 @@ export default function SudoDashboard() {
           </p>
 
           <div className="mt-6 space-y-3">
-
             <button
               type="button"
               className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-4 text-left transition hover:border-brand-purple/30 hover:bg-brand-purple/5"
             >
 
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-purple/10">
                   <Building2 className="h-5 w-5 text-brand-purple" />
                 </div>
@@ -192,59 +163,41 @@ export default function SudoDashboard() {
                 <span className="text-sm font-semibold text-brand-dark">
                   Create Institution
                 </span>
-
               </div>
-
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-
             </button>
 
             <button
               type="button"
               className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-4 text-left transition hover:border-brand-purple/30 hover:bg-brand-purple/5"
             >
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-purple/10">
                   <Users className="h-5 w-5 text-brand-purple" />
                 </div>
-
                 <span className="text-sm font-semibold text-brand-dark">
                   Add Administrator
                 </span>
-
               </div>
-
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-
             </button>
 
             <button
               type="button"
               className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-4 text-left transition hover:border-brand-purple/30 hover:bg-brand-purple/5"
             >
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-purple/10">
                   <Monitor className="h-5 w-5 text-brand-purple" />
                 </div>
-
                 <span className="text-sm font-semibold text-brand-dark">
                   Register Kiosk
                 </span>
-
               </div>
-
               <ArrowUpRight className="h-4 w-4 text-gray-400" />
-
             </button>
-
           </div>
-
         </div>
-
       </div>
 
       {/* PLATFORM ACTIVITY */}
