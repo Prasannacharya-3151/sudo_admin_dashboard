@@ -259,10 +259,6 @@ export default function MachinesPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
-              <Cpu className="h-6 w-6 text-brand-purple" />
-            </div>
-
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 RFID Machines

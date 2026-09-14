@@ -177,10 +177,6 @@ export default function RFIDCardsPage() {
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
-              <CreditCard className="h-5 w-5 text-brand-purple" />
-            </div>
-
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 RFID Cards

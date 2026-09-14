@@ -1196,10 +1196,6 @@ export default function InstitutionsPage() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50">
-              <Building2 className="h-5 w-5 text-brand-purple" />
-            </div>
-
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-gray-900">
                 Institutions
