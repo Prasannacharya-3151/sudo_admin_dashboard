@@ -20,7 +20,6 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  Users,
   X,
 } from "lucide-react";
 
@@ -424,7 +423,7 @@ function CreateInstitutionModal({
               type="button"
               disabled={isCreating}
               onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
             >
               <X className="h-5 w-5" />
             </button>
@@ -483,7 +482,7 @@ function CreateInstitutionModal({
                 <select
                   name="status"
                   defaultValue="onboarding"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+                  className="w-full rounded-full border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 "
                 >
                   <option value="onboarding">
                     Onboarding
@@ -507,9 +506,7 @@ function CreateInstitutionModal({
 
           <section className="border-t border-gray-100 pt-7">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                <Users className="h-4 w-4 text-brand-purple" />
-              </div>
+             
 
               <div>
                 <h3 className="font-bold text-gray-900">
@@ -555,7 +552,7 @@ function CreateInstitutionModal({
               type="button"
               disabled={isCreating}
               onClick={onClose}
-              className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -563,7 +560,7 @@ function CreateInstitutionModal({
             <button
               type="submit"
               disabled={isCreating}
-              className="flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {isCreating && (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1213,7 +1210,7 @@ export default function InstitutionsPage() {
           onClick={() =>
             setIsCreateOpen(true)
           }
-          className="flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+          className="flex items-center justify-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Add Institution
@@ -1273,7 +1270,7 @@ export default function InstitutionsPage() {
               setSearch(event.target.value)
             }
             placeholder="Search by institution, code or email..."
-            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+            className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
           />
         </div>
 
@@ -1283,7 +1280,7 @@ export default function InstitutionsPage() {
           onClick={() =>
             void loadInstitutions()
           }
-          className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
         >
           <RefreshCw
             className={`h-4 w-4 ${

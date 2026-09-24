@@ -86,9 +86,7 @@ export default function SudoDashboard() {
                 <p className="mt-2 text-xs text-gray-400">
                   {stat.description}
                 </p>
-
               </div>
-
             </div>
           );
         })}
@@ -98,20 +96,15 @@ export default function SudoDashboard() {
       {/* MAIN GRID */}
 
       <div className="grid gap-6 xl:grid-cols-3">
-
         <div className="rounded-2xl border border-gray-200 bg-white xl:col-span-2">
           <div className="flex items-center justify-between border-b border-gray-100 p-6">
-
             <div>
-
               <h2 className="text-lg font-bold text-brand-dark">
                 Recent Institutions
               </h2>
-
               <p className="mt-1 text-sm text-gray-500">
                 Recently registered organizations
               </p>
-
             </div>
             <button
               type="button"
@@ -140,11 +133,9 @@ export default function SudoDashboard() {
         {/* Quick Actions */}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-
           <h2 className="text-lg font-bold text-brand-dark">
             Quick Actions
           </h2>
-
           <p className="mt-1 text-sm text-gray-500">
             Frequently used platform actions
           </p>
@@ -154,7 +145,6 @@ export default function SudoDashboard() {
               type="button"
               className="flex w-full items-center justify-between rounded-xl border border-gray-200 p-4 text-left transition hover:border-brand-purple/30 hover:bg-brand-purple/5"
             >
-
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-purple/10">
                   <Building2 className="h-5 w-5 text-brand-purple" />
@@ -203,15 +193,11 @@ export default function SudoDashboard() {
       {/* PLATFORM ACTIVITY */}
 
       <div className="rounded-2xl border border-gray-200 bg-white">
-
         <div className="flex items-center justify-between border-b border-gray-100 p-6">
-
           <div>
-
             <h2 className="text-lg font-bold text-brand-dark">
               Platform Activity
             </h2>
-
             <p className="mt-1 text-sm text-gray-500">
               Latest activity across the platform
             </p>
@@ -224,19 +210,13 @@ export default function SudoDashboard() {
           >
             <MoreHorizontal className="h-5 w-5" />
           </button>
-
         </div>
-
         <div className="flex min-h-[180px] items-center justify-center">
-
           <p className="text-sm text-gray-400">
             Activity will appear here.
           </p>
-
         </div>
-
       </div>
-
     </div>
   );
 }
