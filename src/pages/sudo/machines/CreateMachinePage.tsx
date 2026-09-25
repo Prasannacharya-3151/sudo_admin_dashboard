@@ -50,6 +50,20 @@ export default function CreateMachinePage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ==========================================
+  // LOAD INSTITUTIONS
+  //
+  // Runs once on mount only. accessToken deliberately
+  // excluded from the dependency array — it rotates
+  // silently every ~15 minutes via proactive refresh,
+  // and watching it here was re-fetching (and re-showing
+  // the loading state) every time the token rotated in
+  // the background, even though this dropdown's data
+  // doesn't need to refresh on that schedule.
+  // fetchInstitutions still reads the current accessToken
+  // via closure at the moment it actually runs.
+  // ==========================================
+
   useEffect(() => {
     const fetchInstitutions = async () => {
       if (!accessToken) {
@@ -81,7 +95,8 @@ export default function CreateMachinePage() {
     };
 
     fetchInstitutions();
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (
     event: ChangeEvent<HTMLInputElement>,

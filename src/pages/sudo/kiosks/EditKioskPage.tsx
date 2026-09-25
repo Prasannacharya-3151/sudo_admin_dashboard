@@ -58,6 +58,14 @@ export default function EditKioskPage() {
 
   // ==========================================
   // FETCH KIOSK
+  //
+  // Re-runs only when the route's kioskId changes
+  // (navigating to edit a different kiosk). accessToken
+  // deliberately excluded — it rotates silently every
+  // ~15 minutes via proactive refresh, and watching it
+  // here was re-triggering the whole loading state on
+  // every rotation. fetchKiosk still reads the current
+  // accessToken via closure at the moment it runs.
   // ==========================================
 
   useEffect(() => {
@@ -102,10 +110,15 @@ export default function EditKioskPage() {
     };
 
     void fetchKiosk();
-  }, [kioskId, accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kioskId]);
 
   // ==========================================
   // LOAD INSTITUTIONS
+  //
+  // Runs once on mount only, for the same reason
+  // as above — this dropdown's data doesn't need to
+  // refetch just because the access token rotated.
   // ==========================================
 
   useEffect(() => {
@@ -127,7 +140,8 @@ export default function EditKioskPage() {
     };
 
     void loadInstitutions();
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTypeChange = (value: KioskType) => {
     setKioskType(value);
@@ -220,7 +234,7 @@ export default function EditKioskPage() {
           <button
             type="button"
             onClick={() => navigate("/sudo/kiosks")}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Kiosks
@@ -235,7 +249,7 @@ export default function EditKioskPage() {
   // ==========================================
 
   return (
-    <div className="mx-auto max-w-4xl pb-10">
+    <div className=" pb-10">
       {/* HEADER */}
       <div className="mb-6">
         <button
@@ -278,7 +292,7 @@ export default function EditKioskPage() {
                 Kiosk Name
               </label>
               <div className="relative">
-                <Monitor className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Monitor className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   id="name"
                   type="text"
@@ -286,11 +300,18 @@ export default function EditKioskPage() {
                   onChange={(event) => setName(event.target.value)}
                   maxLength={100}
                   disabled={isSubmitting}
-                  className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  className="h-12 w-full rounded-full border border-gray-200 pl-11 pr-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
                 />
               </div>
             </div>
 
+            {/* NOTE: these are large card-style selector buttons
+                (icon + label inside a wide box), not slim pill
+                controls — kept as rounded-2xl since forcing
+                rounded-full on a wide/short card just stretches
+                the corners into an odd pill shape. Every genuine
+                pill control (inputs, select, action buttons)
+                below IS rounded-full. */}
             <div className="md:col-span-2 space-y-2">
               <label className="text-sm font-semibold text-gray-700">Kiosk Type</label>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -298,7 +319,7 @@ export default function EditKioskPage() {
                   type="button"
                   onClick={() => handleTypeChange("institution")}
                   disabled={isSubmitting}
-                  className={`rounded-xl border-2 p-4 text-left transition ${
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
                     kioskType === "institution"
                       ? "border-brand-purple bg-brand-purple/5"
                       : "border-gray-200 hover:border-gray-300"
@@ -314,7 +335,7 @@ export default function EditKioskPage() {
                   type="button"
                   onClick={() => handleTypeChange("public")}
                   disabled={isSubmitting}
-                  className={`rounded-xl border-2 p-4 text-left transition ${
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
                     kioskType === "public"
                       ? "border-brand-purple bg-brand-purple/5"
                       : "border-gray-200 hover:border-gray-300"
@@ -348,7 +369,7 @@ export default function EditKioskPage() {
                 value={institutionId}
                 onChange={(event) => setInstitutionId(event.target.value)}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               >
                 <option value="">Select an institution</option>
                 {institutions.map((institution) => (
@@ -379,7 +400,7 @@ export default function EditKioskPage() {
                 value={addressLine1}
                 onChange={(event) => setAddressLine1(event.target.value)}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -391,7 +412,7 @@ export default function EditKioskPage() {
                 onChange={(event) => setAddressLine2(event.target.value)}
                 placeholder="Optional"
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -403,7 +424,7 @@ export default function EditKioskPage() {
                 onChange={(event) => setCity(event.target.value)}
                 maxLength={100}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -415,7 +436,7 @@ export default function EditKioskPage() {
                 onChange={(event) => setState(event.target.value)}
                 maxLength={100}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -427,7 +448,7 @@ export default function EditKioskPage() {
                 onChange={(event) => setCountry(event.target.value)}
                 maxLength={100}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -440,7 +461,7 @@ export default function EditKioskPage() {
                 maxLength={20}
                 placeholder="Optional"
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -453,7 +474,7 @@ export default function EditKioskPage() {
                 onChange={(event) => setLatitude(event.target.value)}
                 placeholder="Optional"
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -466,7 +487,7 @@ export default function EditKioskPage() {
                 onChange={(event) => setLongitude(event.target.value)}
                 placeholder="Optional"
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
           </div>
@@ -478,7 +499,7 @@ export default function EditKioskPage() {
             type="button"
             onClick={() => navigate(`/sudo/kiosks/${kioskId}`)}
             disabled={isSubmitting}
-            className="rounded-xl border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
@@ -486,7 +507,7 @@ export default function EditKioskPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-purple/20 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-purple px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-purple/20 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <>

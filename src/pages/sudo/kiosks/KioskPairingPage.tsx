@@ -46,6 +46,15 @@ export default function KioskPairingPage() {
   // ==========================================
   // LOAD — try the placeholder pairing-status endpoint first;
   // fall back to kiosk detail (which we know works) if it 404s.
+  //
+  // accessToken deliberately excluded from this useCallback's
+  // dependency array. It rotates silently every ~15 minutes via
+  // proactive refresh; including it here gave loadPairingInfo a
+  // new identity on every rotation, which re-triggered the
+  // useEffect below and re-showed the loading state on a timer.
+  // The function still reads the current accessToken via closure
+  // whenever it's actually called (on mount, or from handlePair /
+  // handleUnpair indirectly through their own accessToken reads).
   // ==========================================
 
   const loadPairingInfo = useCallback(async () => {
@@ -76,7 +85,8 @@ export default function KioskPairingPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [kioskId, accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kioskId]);
 
   useEffect(() => {
     void loadPairingInfo();

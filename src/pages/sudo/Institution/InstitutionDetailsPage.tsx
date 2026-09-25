@@ -28,9 +28,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-
 import { toast } from "sonner";
-
 import { useSudoAuth } from "../../../context/SudoAuthContext";
 
 import {
@@ -144,7 +142,7 @@ function ConfirmDialog({
             type="button"
             disabled={isLoading}
             onClick={onCancel}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -155,7 +153,7 @@ function ConfirmDialog({
             type="button"
             disabled={isLoading}
             onClick={onCancel}
-            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -164,7 +162,7 @@ function ConfirmDialog({
             type="button"
             disabled={isLoading}
             onClick={onConfirm}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 ${
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 ${
               isDangerous
                 ? "bg-red-600 hover:bg-red-700"
                 : "bg-brand-purple hover:opacity-90"
@@ -216,7 +214,7 @@ function FormInput({
         defaultValue={defaultValue}
         minLength={minLength}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+        className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
       />
     </div>
   );
@@ -293,7 +291,7 @@ function EditInstitutionModal({
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
             >
               <X className="h-5 w-5" />
             </button>
@@ -352,7 +350,7 @@ function EditInstitutionModal({
                 defaultValue={
                   institution.status
                 }
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+                className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
               >
                 <option value="onboarding">
                   Onboarding
@@ -378,7 +376,7 @@ function EditInstitutionModal({
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -386,7 +384,7 @@ function EditInstitutionModal({
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {isSaving && (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -464,7 +462,7 @@ function AddAdministratorModal({
             type="button"
             disabled={isCreating}
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -498,7 +496,7 @@ function AddAdministratorModal({
             minLength={8}
           />
 
-          <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
+          <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-brand-purple" />
 
@@ -518,7 +516,7 @@ function AddAdministratorModal({
               type="button"
               disabled={isCreating}
               onClick={onClose}
-              className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -526,7 +524,7 @@ function AddAdministratorModal({
             <button
               type="submit"
               disabled={isCreating}
-              className="flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {isCreating && (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -559,7 +557,7 @@ function StatCard({
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-brand-purple">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50 text-brand-purple">
           {icon}
         </div>
 
@@ -589,8 +587,8 @@ function InfoItem({
   value: string;
 }) {
   return (
-    <div className="flex gap-3">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-400">
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-400">
         {icon}
       </div>
 
@@ -1084,7 +1082,7 @@ export default function InstitutionDetailsPage() {
   if (!institution) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-50">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-50">
           <Building2 className="h-8 w-8 text-brand-purple" />
         </div>
 
@@ -1103,7 +1101,7 @@ export default function InstitutionDetailsPage() {
               "/sudo/institutions",
             )
           }
-          className="mt-6 flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          className="mt-6 flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <ArrowLeft className="h-4 w-4" />
 
@@ -1157,7 +1155,7 @@ export default function InstitutionDetailsPage() {
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-50">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-purple-50">
               <Building2 className="h-7 w-7 text-brand-purple" />
             </div>
 
@@ -1190,13 +1188,13 @@ export default function InstitutionDetailsPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() =>
                 setIsEditOpen(true)
               }
-              className="flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="flex items-center gap-2 rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               <Edit3 className="h-4 w-4" />
 
@@ -1211,7 +1209,7 @@ export default function InstitutionDetailsPage() {
                   institution,
                 })
               }
-              className="flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+              className="flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
             >
               <Power className="h-4 w-4" />
 
@@ -1363,7 +1361,7 @@ export default function InstitutionDetailsPage() {
                   onClick={() =>
                     setIsEditOpen(true)
                   }
-                  className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   <Edit3 className="h-4 w-4" />
 
@@ -1477,7 +1475,7 @@ export default function InstitutionDetailsPage() {
                       institution,
                     })
                   }
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   <Power className="h-4 w-4" />
 
@@ -1495,7 +1493,7 @@ export default function InstitutionDetailsPage() {
                       institution,
                     })
                   }
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4" />
 
@@ -1529,7 +1527,7 @@ export default function InstitutionDetailsPage() {
                         </p>
                       </div>
 
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                         <Check className="h-6 w-6 text-emerald-600" />
                       </div>
                     </div>
@@ -1552,7 +1550,7 @@ export default function InstitutionDetailsPage() {
                         </p>
                       </div>
 
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                         <Check className="h-6 w-6 text-emerald-600" />
                       </div>
                     </div>
@@ -1588,7 +1586,7 @@ export default function InstitutionDetailsPage() {
               onClick={() =>
                 setIsAddAdminOpen(true)
               }
-              className="flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+              className="flex items-center justify-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
 
@@ -1603,7 +1601,7 @@ export default function InstitutionDetailsPage() {
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-100 px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50">
                   <ShieldCheck className="h-5 w-5 text-brand-purple" />
                 </div>
 
@@ -1626,7 +1624,7 @@ export default function InstitutionDetailsPage() {
             ) : administrator ? (
               <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-50">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-50">
                     <User className="h-5 w-5 text-brand-purple" />
                   </div>
 
@@ -1673,7 +1671,7 @@ export default function InstitutionDetailsPage() {
                       administrator,
                     })
                   }
-                  className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
 
@@ -1682,7 +1680,7 @@ export default function InstitutionDetailsPage() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-50">
                   <ShieldCheck className="h-5 w-5 text-gray-400" />
                 </div>
 
@@ -1699,7 +1697,7 @@ export default function InstitutionDetailsPage() {
                   onClick={() =>
                     setIsAddAdminOpen(true)
                   }
-                  className="mt-4 flex items-center gap-2 rounded-xl bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  className="mt-4 flex items-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
                 >
                   <Plus className="h-4 w-4" />
 

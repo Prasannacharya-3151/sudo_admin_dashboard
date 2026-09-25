@@ -67,6 +67,15 @@ export default function CreateKioskPage() {
 
   // ==========================================
   // LOAD INSTITUTIONS
+  //
+  // Runs once on mount only. accessToken deliberately
+  // excluded from the dependency array — it rotates
+  // silently every ~15 minutes via proactive refresh,
+  // and watching it here would re-fetch (and re-show
+  // the loading state) on every rotation, even though
+  // the dropdown data itself doesn't need refreshing.
+  // loadInstitutions still reads the current accessToken
+  // via closure at the moment it actually runs.
   // ==========================================
 
   useEffect(() => {
@@ -89,7 +98,8 @@ export default function CreateKioskPage() {
     };
 
     void loadInstitutions();
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================================
   // TYPE CHANGE
@@ -228,10 +238,6 @@ export default function CreateKioskPage() {
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl">
-        {/* ======================================
-            HEADER
-        ====================================== */}
 
         <div className="mb-8">
           <button
@@ -244,10 +250,7 @@ export default function CreateKioskPage() {
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-purple/10">
-              <Monitor className="h-6 w-6 text-brand-purple" />
-            </div>
-
+            
             <div>
               <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                 Create New Kiosk
@@ -556,7 +559,7 @@ export default function CreateKioskPage() {
             </button>
           </div>
         </form>
-      </div>
+   
 
       {/* ======================================
           SUCCESS MODAL — shows pairing_code once, right after creation

@@ -262,18 +262,18 @@ export default function KiosksPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:flex-row">
+      <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:flex-row md:items-center">
         {/* SEARCH */}
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by kiosk name, pairing code, or location..."
-            className="w-full rounded-full border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-brand-purple"
+            className="h-12 w-full rounded-full border border-gray-200 pl-11 pr-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
           />
         </div>
 
@@ -284,7 +284,7 @@ export default function KiosksPage() {
           onChange={(event) =>
             setTypeFilter(event.target.value as "all" | KioskType)
           }
-          className="rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-brand-purple"
+          className="h-12 rounded-full border border-gray-200 bg-white px-5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
         >
           {typeOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -302,7 +302,7 @@ export default function KiosksPage() {
               event.target.value as "all" | "paired" | "unpaired",
             )
           }
-          className="rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-brand-purple"
+          className="h-12 rounded-full border border-gray-200 bg-white px-5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
         >
           {pairedOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -316,7 +316,7 @@ export default function KiosksPage() {
         <button
           type="button"
           onClick={() => void fetchKiosks()}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-gray-200 px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
@@ -328,9 +328,9 @@ export default function KiosksPage() {
       ====================================== */}
 
       {error && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-100 bg-red-50 p-5">
+        <div className="flex flex-col gap-4 rounded-2xl border border-red-100 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <CircleAlert className="h-5 w-5 text-red-600" />
+            <CircleAlert className="h-5 w-5 shrink-0 text-red-600" />
 
             <div>
               <p className="font-semibold text-red-700">
@@ -343,7 +343,7 @@ export default function KiosksPage() {
           <button
             type="button"
             onClick={() => void fetchKiosks()}
-            className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+            className="shrink-0 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
           >
             Retry
           </button>
@@ -356,7 +356,7 @@ export default function KiosksPage() {
 
       {!error && filteredKiosks.length === 0 && (
         <div className="flex min-h-[350px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-50">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-50">
             <Monitor className="h-8 w-8 text-brand-purple" />
           </div>
 
@@ -374,7 +374,7 @@ export default function KiosksPage() {
             <button
               type="button"
               onClick={() => navigate("/sudo/kiosks/create")}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
             >
               <Plus className="h-5 w-5" />
               Add Kiosk
@@ -427,7 +427,7 @@ export default function KiosksPage() {
 
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-50">
                             <Monitor className="h-5 w-5 text-brand-purple" />
                           </div>
 
@@ -491,13 +491,13 @@ export default function KiosksPage() {
                               openMenuId === kiosk.id ? null : kiosk.id,
                             )
                           }
-                          className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
                         >
                           <MoreVertical className="h-5 w-5" />
                         </button>
 
                         {openMenuId === kiosk.id && (
-                          <div className="absolute right-6 top-14 z-20 w-44 rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
+                          <div className="absolute right-6 top-14 z-20 w-44 rounded-2xl border border-gray-100 bg-white p-1.5 shadow-xl">
                             {/* VIEW */}
 
                             <button
@@ -505,7 +505,7 @@ export default function KiosksPage() {
                               onClick={() =>
                                 navigate(`/sudo/kiosks/${kiosk.id}`)
                               }
-                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                              className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                             >
                               <Eye className="h-4 w-4" />
                               View Details
@@ -518,7 +518,7 @@ export default function KiosksPage() {
                               onClick={() =>
                                 navigate(`/sudo/kiosks/${kiosk.id}/edit`)
                               }
-                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                              className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                             >
                               <Pencil className="h-4 w-4" />
                               Edit Kiosk
@@ -530,7 +530,7 @@ export default function KiosksPage() {
                               type="button"
                               disabled={deletingId === kiosk.id}
                               onClick={() => void handleDelete(kiosk)}
-                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {deletingId === kiosk.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -22,9 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-
 import { toast } from "sonner";
-
 import { useSudoAuth } from "../../../context/SudoAuthContext";
 
 import {
@@ -72,7 +70,6 @@ const statusDot: Record<
   suspended: "bg-red-500",
   inactive: "bg-gray-400",
 };
-
 // ==========================================
 // STATUS BADGE
 // ==========================================
@@ -192,7 +189,7 @@ function ActionsMenu({
         onClick={() =>
           setIsOpen((value) => !value)
         }
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Institution actions"
       >
         {busy ? (
@@ -203,7 +200,7 @@ function ActionsMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl">
           <button
             type="button"
             onClick={() =>
@@ -211,7 +208,7 @@ function ActionsMenu({
                 onView(institution),
               )
             }
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
             <Eye className="h-4 w-4 text-gray-400" />
             View details
@@ -224,7 +221,7 @@ function ActionsMenu({
                 onEdit(institution),
               )
             }
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
             <Pencil className="h-4 w-4 text-gray-400" />
             Edit institution
@@ -237,7 +234,7 @@ function ActionsMenu({
                 onToggleStatus(institution),
               )
             }
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
             <Power className="h-4 w-4 text-gray-400" />
 
@@ -255,7 +252,7 @@ function ActionsMenu({
                 onDelete(institution),
               )
             }
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+            className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
           >
             <Trash2 className="h-4 w-4" />
             Delete institution
@@ -307,7 +304,7 @@ function ConfirmDialog({
             type="button"
             disabled={isLoading}
             onClick={onCancel}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -318,7 +315,7 @@ function ConfirmDialog({
             type="button"
             disabled={isLoading}
             onClick={onCancel}
-            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -327,7 +324,7 @@ function ConfirmDialog({
             type="button"
             disabled={isLoading}
             onClick={onConfirm}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 ${
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 ${
               isDangerous
                 ? "bg-red-600 hover:bg-red-700"
                 : "bg-brand-purple hover:opacity-90"
@@ -381,7 +378,7 @@ function FormInput({
         defaultValue={defaultValue}
         minLength={minLength}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+        className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
       />
     </div>
   );
@@ -423,7 +420,7 @@ function CreateInstitutionModal({
               type="button"
               disabled={isCreating}
               onClick={onClose}
-              className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
             >
               <X className="h-5 w-5" />
             </button>
@@ -482,7 +479,7 @@ function CreateInstitutionModal({
                 <select
                   name="status"
                   defaultValue="onboarding"
-                  className="w-full rounded-full border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 "
+                  className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm text-gray-900 outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
                 >
                   <option value="onboarding">
                     Onboarding
@@ -506,8 +503,6 @@ function CreateInstitutionModal({
 
           <section className="border-t border-gray-100 pt-7">
             <div className="mb-4 flex items-center gap-3">
-             
-
               <div>
                 <h3 className="font-bold text-gray-900">
                   Institution Administrator
@@ -612,7 +607,7 @@ function EditInstitutionModal({
             type="button"
             disabled={isSaving}
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -665,7 +660,7 @@ function EditInstitutionModal({
               <select
                 name="status"
                 defaultValue={institution.status}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+                className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
               >
                 <option value="onboarding">
                   Onboarding
@@ -691,7 +686,7 @@ function EditInstitutionModal({
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -699,7 +694,7 @@ function EditInstitutionModal({
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {isSaving && (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -732,7 +727,7 @@ function SummaryCard({
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5">
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-brand-purple">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50 text-brand-purple">
           {icon}
         </div>
 
@@ -856,9 +851,17 @@ export default function InstitutionsPage() {
     }
   };
 
+  // Fetch once on mount only. accessToken deliberately
+  // excluded — it rotates silently every ~15 minutes via
+  // proactive refresh, and watching it here was re-running
+  // this fetch (and its loading spinner) on every rotation.
+  // loadInstitutions still reads the current accessToken via
+  // closure whenever it's called (here, or from the refresh
+  // button, or after create/edit/toggle/delete actions).
   useEffect(() => {
     void loadInstitutions();
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================================
   // CREATE
@@ -1270,7 +1273,7 @@ export default function InstitutionsPage() {
               setSearch(event.target.value)
             }
             placeholder="Search by institution, code or email..."
-            className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+            className="h-12 w-full rounded-full border border-gray-200 bg-white pl-11 pr-5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
           />
         </div>
 
@@ -1280,7 +1283,7 @@ export default function InstitutionsPage() {
           onClick={() =>
             void loadInstitutions()
           }
-          className="flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          className="flex h-12 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
         >
           <RefreshCw
             className={`h-4 w-4 ${
@@ -1306,7 +1309,7 @@ export default function InstitutionsPage() {
         ) : filteredInstitutions.length ===
           0 ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-50">
               <Building2 className="h-7 w-7 text-brand-purple" />
             </div>
 
@@ -1326,7 +1329,7 @@ export default function InstitutionsPage() {
                 onClick={() =>
                   setIsCreateOpen(true)
                 }
-                className="mt-5 flex items-center gap-2 rounded-xl bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                className="mt-5 flex items-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
               >
                 <Plus className="h-4 w-4" />
                 Add Institution
@@ -1364,7 +1367,7 @@ export default function InstitutionsPage() {
                         }
                         className="flex min-w-0 items-center gap-3 text-left"
                       >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-50">
                           <Building2 className="h-5 w-5 text-brand-purple" />
                         </div>
 
@@ -1440,7 +1443,7 @@ export default function InstitutionsPage() {
                         }
                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       >
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-purple-50">
                           <Building2 className="h-5 w-5 text-brand-purple" />
                         </div>
 

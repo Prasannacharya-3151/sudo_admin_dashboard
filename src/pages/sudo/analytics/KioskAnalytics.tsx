@@ -305,14 +305,32 @@ export default function KioskAnalytics() {
 
   // ========================================
   // INITIAL KIOSK LOAD
+  //
+  // Runs once on mount only. accessToken is
+  // intentionally NOT in this array — the
+  // access token rotates silently every ~15
+  // minutes via proactive refresh, and each
+  // rotation was re-triggering this effect,
+  // causing the whole page to flash back to
+  // its loading state on a timer. The fetch
+  // functions above still read the current
+  // accessToken via closure when they run;
+  // this array only controls *when* the
+  // effect re-fires, not what token is used.
   // ========================================
 
   useEffect(() => {
     void fetchKiosks();
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ========================================
   // KIOSK ANALYTICS LOAD
+  //
+  // Re-runs only when the selected kiosk or
+  // the stale-job threshold changes — both
+  // real reasons to refetch. accessToken
+  // removed for the same reason as above.
   // ========================================
 
   useEffect(() => {
@@ -321,8 +339,8 @@ export default function KioskAnalytics() {
     }
 
     void fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    accessToken,
     selectedKioskId,
     staleMinutes,
   ]);
@@ -679,14 +697,14 @@ export default function KioskAnalytics() {
                     Total Revenue
                   </p>
 
-                  <p className="mt-3 text-3xl font-bold text-[#1A1426]">
+                  <p className="mt-3 text-3xl font-bold text-brand-dark">
                     {formatCurrency(
                       revenue?.total_revenue,
                     )}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-purple-50 p-3 text-[#7E49F2]">
+                <div className="rounded-2xl bg-purple-50 p-3 text-brand-purple">
                   <TrendingUp className="h-6 w-6" />
                 </div>
               </div>
@@ -694,14 +712,14 @@ export default function KioskAnalytics() {
 
             {/* Sheets */}
 
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+            <div className="rounded-3xl bg-brand-white p-6 shadow-sm ring-1 ring-gray-100">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">
                     Total Sheets
                   </p>
 
-                  <p className="mt-3 text-3xl font-bold text-[#1A1426]">
+                  <p className="mt-3 text-3xl font-bold text-brand-dark">
                     {revenue?.total_sheets ??
                       0}
                   </p>
