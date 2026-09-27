@@ -1,518 +1,410 @@
 import {
   CreditCard,
-  Search,
   Eye,
-  Loader2,
-  RefreshCw,
+  Search,
+  Users,
   Wallet,
-  CircleDot,
+  Ban,
+  CheckCircle2,
 } from "lucide-react";
 
 import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 
-import {
-  useNavigate,
-} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { toast } from "sonner";
 
-import {
-  getRFIDCards,
-} from "../../../api/machineApi";
+import { getRFIDCards } from "../../../api/machineApi";
 
-import type {
-  RFIDCard,
-} from "../../../types/machine";
-
-// ==========================================
-// COMPONENT
-// ==========================================
+import type { RFIDCard } from "../../../types/machine";
 
 export default function RFIDCardsPage() {
   const navigate = useNavigate();
 
-  // ==========================================
-  // STATE
-  // ==========================================
+  const [cards, setCards] = useState<RFIDCard[]>(
+    [],
+  );
 
-  const [cards, setCards] =
-    useState<RFIDCard[]>([]);
+  const [search, setSearch] = useState("");
 
-  const [searchQuery, setSearchQuery] =
-    useState("");
-
-  const [isLoading, setIsLoading] =
+  const [loading, setLoading] =
     useState(true);
 
-  const [isRefreshing, setIsRefreshing] =
-    useState(false);
+  const [error, setError] =
+    useState<string | null>(null);
 
-  // ==========================================
-  // LOAD RFID CARDS
-  // ==========================================
-
-  const loadCards = async (
-    showRefreshLoader = false,
-  ) => {
+  async function loadCards() {
     try {
-      if (showRefreshLoader) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
+      setLoading(true);
+      setError(null);
 
-      const data =
-        await getRFIDCards();
+      const data = await getRFIDCards();
 
       setCards(data);
-    } catch (error) {
-      console.error(
-        "Failed to load RFID cards:",
-        error,
-      );
-
+    } catch (err) {
       const message =
-        error instanceof Error
-          ? error.message
+        err instanceof Error
+          ? err.message
           : "Failed to load RFID cards";
+
+      setError(message);
 
       toast.error(message);
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      setLoading(false);
     }
-  };
-
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
+  }
 
   useEffect(() => {
     void loadCards();
   }, []);
 
-  // ==========================================
-  // FILTERED CARDS
-  // ==========================================
-
   const filteredCards = useMemo(() => {
-    const query =
-      searchQuery.toLowerCase().trim();
+    const value = search
+      .trim()
+      .toLowerCase();
 
-    if (!query) {
+    if (!value) {
       return cards;
     }
 
-    return cards.filter((card) => {
+    return cards.filter((card) =>
+      [
+        card.card_uuid,
+        card.std_name,
+        card.std_reg,
+        card.std_id,
+        card.group,
+        card.status,
+      ]
+        .filter(Boolean)
+        .some((field) =>
+          String(field)
+            .toLowerCase()
+            .includes(value),
+        ),
+    );
+  }, [cards, search]);
+
+  const totalBalance = useMemo(() => {
+    return cards.reduce((total, card) => {
       return (
-        card.card_uuid
-          ?.toLowerCase()
-          .includes(query) ||
-        card.machine_id
-          ?.toLowerCase()
-          .includes(query) ||
-        card.status
-          ?.toLowerCase()
-          .includes(query)
+        total +
+        Number(
+          card.balance ??
+            card.wallet_bal ??
+            0,
+        )
       );
-    });
-  }, [cards, searchQuery]);
+    }, 0);
+  }, [cards]);
 
-  // ==========================================
-  // STATUS BADGE
-  // ==========================================
+  const activeCards = cards.filter(
+    (card) =>
+      String(card.status).toLowerCase() ===
+      "active",
+  ).length;
 
-  const getStatusStyle = (
+  const blockedCards = cards.filter(
+    (card) =>
+      String(card.status).toLowerCase() ===
+      "blocked",
+  ).length;
+
+  function formatCurrency(
+    value: string | number | undefined,
+  ) {
+    return `₹${Number(value ?? 0).toLocaleString(
+      "en-IN",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      },
+    )}`;
+  }
+
+  function formatDate(
+    value?: string,
+  ) {
+    if (!value) return "—";
+
+    return new Date(value).toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      },
+    );
+  }
+
+  function statusClass(
     status?: string,
-  ) => {
+  ) {
     switch (
-      status?.toLowerCase()
+      String(status).toLowerCase()
     ) {
       case "active":
-        return "bg-green-50 text-green-600 border-green-100";
+        return "bg-emerald-50 text-emerald-700";
 
       case "blocked":
-        return "bg-red-50 text-red-600 border-red-100";
+        return "bg-red-50 text-red-700";
 
       case "inactive":
-        return "bg-gray-100 text-gray-600 border-gray-200";
+        return "bg-gray-100 text-gray-600";
 
       default:
-        return "bg-yellow-50 text-yellow-600 border-yellow-100";
+        return "bg-gray-100 text-gray-600";
     }
-  };
+  }
 
-  // ==========================================
-  // LOADING
-  // ==========================================
-
-  if (isLoading) {
+  function StatCard({
+    title,
+    value,
+    icon,
+  }: {
+    title: string;
+    value: string | number;
+    icon: ReactNode;
+  }) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-brand-purple" />
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">
+              {title}
+            </p>
 
-          <p className="text-sm font-medium text-gray-500">
-            Loading RFID cards...
-          </p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">
+              {value}
+            </p>
+          </div>
+
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+            {icon}
+          </div>
         </div>
       </div>
     );
   }
 
-  // ==========================================
-  // UI
-  // ==========================================
-
   return (
-    <div className="w-full">
-      {/* ======================================
-          HEADER
-      ====================================== */}
+    <div className="space-y-6 p-6">
+      {/* HEADER */}
 
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                RFID Cards
-              </h1>
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          RFID Cards
+        </h1>
 
-              <p className="text-sm text-gray-500">
-                Manage RFID cards and monitor balances.
-              </p>
-            </div>
-          </div>
-        </div>
+        <p className="mt-1 text-sm text-gray-500">
+          Manage RFID cards and student wallets.
+        </p>
+      </div>
 
-        {/* REFRESH */}
+      {/* STATS */}
 
-        <button
-          type="button"
-          onClick={() =>
-            void loadCards(true)
-          }
-          disabled={isRefreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${
-              isRefreshing
-                ? "animate-spin"
-                : ""
-            }`}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Total Cards"
+          value={cards.length}
+          icon={<CreditCard size={21} />}
+        />
+
+        <StatCard
+          title="Active Cards"
+          value={activeCards}
+          icon={<CheckCircle2 size={21} />}
+        />
+
+        <StatCard
+          title="Blocked Cards"
+          value={blockedCards}
+          icon={<Ban size={21} />}
+        />
+
+        <StatCard
+          title="Total Balance"
+          value={formatCurrency(
+            totalBalance,
+          )}
+          icon={<Wallet size={21} />}
+        />
+      </div>
+
+      {/* SEARCH */}
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="relative">
+          <Search
+            size={18}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
           />
-
-          Refresh
-        </button>
-      </div>
-
-      {/* ======================================
-          STATS
-      ====================================== */}
-
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* TOTAL */}
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Cards
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-gray-900">
-                {cards.length}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
-              <CreditCard className="h-5 w-5 text-brand-purple" />
-            </div>
-          </div>
-        </div>
-
-        {/* ACTIVE */}
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Active Cards
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-green-600">
-                {
-                  cards.filter(
-                    (card) =>
-                      card.status?.toLowerCase() ===
-                      "active",
-                  ).length
-                }
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50">
-              <CircleDot className="h-5 w-5 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* BLOCKED */}
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Blocked Cards
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-red-600">
-                {
-                  cards.filter(
-                    (card) =>
-                      card.status?.toLowerCase() ===
-                      "blocked",
-                  ).length
-                }
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50">
-              <CreditCard className="h-5 w-5 text-red-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* TOTAL BALANCE */}
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Balance
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-gray-900">
-                ₹
-                {cards
-                  .reduce(
-                    (total, card) =>
-                      total +
-                      Number(
-                        card.balance || 0,
-                      ),
-                    0,
-                  )
-                  .toLocaleString("en-IN")}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-50">
-              <Wallet className="h-5 w-5 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ======================================
-          SEARCH
-      ====================================== */}
-
-      <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="relative max-w-md">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
           <input
-            type="text"
-            value={searchQuery}
+            value={search}
             onChange={(event) =>
-              setSearchQuery(
-                event.target.value,
-              )
+              setSearch(event.target.value)
             }
-            placeholder="Search by card UUID, machine or status..."
-            className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm text-gray-900 outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
+            placeholder="Search student, register number, card UUID..."
+            className="w-full rounded-full border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-purple-500 focus:bg-white"
           />
         </div>
       </div>
 
-      {/* ======================================
-          RFID CARDS TABLE
-      ====================================== */}
+      {/* TABLE */}
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        {/* TABLE HEADER */}
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        {loading ? (
+          <div className="flex min-h-[300px] items-center justify-center">
+            <p className="text-sm text-gray-500">
+              Loading RFID cards...
+            </p>
+          </div>
+        ) : error ? (
+          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+            <p className="text-sm text-red-500">
+              {error}
+            </p>
 
-        <div className="border-b border-gray-100 px-6 py-5">
-          <h2 className="font-bold text-gray-900">
-            All RFID Cards
-          </h2>
+            <button
+              onClick={() => void loadCards()}
+              className="rounded-full bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
+            >
+              Retry
+            </button>
+          </div>
+        ) : filteredCards.length === 0 ? (
+          <div className="flex min-h-[300px] flex-col items-center justify-center">
+            <Users
+              size={36}
+              className="text-gray-300"
+            />
 
-          <p className="mt-1 text-sm text-gray-500">
-            {filteredCards.length} card
-            {filteredCards.length !== 1
-              ? "s"
-              : ""}{" "}
-            found
-          </p>
-        </div>
-
-        {/* EMPTY STATE */}
-
-        {filteredCards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-6 py-20">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-              <CreditCard className="h-7 w-7 text-gray-400" />
-            </div>
-
-            <h3 className="mt-5 text-lg font-bold text-gray-900">
-              No RFID cards found
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Try changing your search query.
+            <p className="mt-3 text-sm text-gray-500">
+              No RFID cards found.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px]">
+            <table className="w-full min-w-[1050px]">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/70">
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Student
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Register No.
+                  </th>
+
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Card UUID
                   </th>
 
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Machine ID
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Group
                   </th>
 
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Balance
                   </th>
 
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Status
                   </th>
 
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Created
                   </th>
 
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Action
                   </th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredCards.map(
-                  (card) => (
-                    <tr
-                      key={
-                        card.id ||
-                        card.card_uuid
-                      }
-                      className="border-b border-gray-50 transition last:border-0 hover:bg-gray-50/70"
-                    >
-                      {/* CARD UUID */}
+                {filteredCards.map((card) => (
+                  <tr
+                    key={card.card_uuid}
+                    className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                  >
+                    <td className="px-5 py-4">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {card.std_name ||
+                            "Unknown Student"}
+                        </p>
 
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-purple/10">
-                            <CreditCard className="h-4 w-4 text-brand-purple" />
-                          </div>
+                        {card.std_id && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            ID: {card.std_id}
+                          </p>
+                        )}
+                      </div>
+                    </td>
 
-                          <span className="font-mono text-sm font-semibold text-gray-900">
-                            {card.card_uuid}
-                          </span>
-                        </div>
-                      </td>
+                    <td className="px-5 py-4 text-sm text-gray-700">
+                      {card.std_reg || "—"}
+                    </td>
 
-                      {/* MACHINE */}
+                    <td className="px-5 py-4">
+                      <code className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-700">
+                        {card.card_uuid}
+                      </code>
+                    </td>
 
-                      <td className="px-6 py-5">
-                        <span className="font-mono text-sm text-gray-600">
-                          {card.machine_id ||
-                            "—"}
-                        </span>
-                      </td>
+                    <td className="px-5 py-4 text-sm text-gray-700">
+                      {card.group || "—"}
+                    </td>
 
-                      {/* BALANCE */}
+                    <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                      {formatCurrency(
+                        card.balance ??
+                          card.wallet_bal,
+                      )}
+                    </td>
 
-                      <td className="px-6 py-5">
-                        <span className="font-semibold text-gray-900">
-                          ₹
-                          {Number(
-                            card.balance || 0,
-                          ).toLocaleString(
-                            "en-IN",
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            },
-                          )}
-                        </span>
-                      </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1.5 text-xs font-medium ${statusClass(
+                          card.status,
+                        )}`}
+                      >
+                        {card.status ||
+                          "Unknown"}
+                      </span>
+                    </td>
 
-                      {/* STATUS */}
+                    <td className="px-5 py-4 text-sm text-gray-500">
+                      {formatDate(
+                        card.created_at,
+                      )}
+                    </td>
 
-                      <td className="px-6 py-5">
-                        <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${getStatusStyle(
-                            card.status,
-                          )}`}
-                        >
-                          {card.status ||
-                            "Unknown"}
-                        </span>
-                      </td>
-
-                      {/* CREATED */}
-
-                      <td className="px-6 py-5">
-                        <span className="text-sm text-gray-500">
-                          {card.created_at
-                            ? new Date(
-                                card.created_at,
-                              ).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )
-                            : "—"}
-                        </span>
-                      </td>
-
-                      {/* ACTION */}
-
-                      <td className="px-6 py-5 text-right">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/sudo/rfid-cards/${encodeURIComponent(
-                                card.card_uuid,
-                              )}`,
-                            )
-                          }
-                          className="inline-flex items-center gap-2 rounded-xl border border-brand-purple/20 px-4 py-2 text-sm font-semibold text-brand-purple transition hover:bg-brand-purple hover:text-white"
-                        >
-                          <Eye className="h-4 w-4" />
-
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ),
-                )}
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/sudo/rfid-cards/${encodeURIComponent(
+                              card.card_uuid,
+                            )}`,
+                          )
+                        }
+                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
+                      >
+                        <Eye size={16} />
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

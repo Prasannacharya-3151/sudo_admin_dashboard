@@ -1,7 +1,6 @@
 import { RFID_API_BASE_URL } from "./apiConfig";
 
 import type {
-  ApiResponse,
   CreateMachinePayload,
   MachineBalance,
   RechargeMachine,
@@ -12,134 +11,82 @@ import type {
   UpdateCardStatusPayload,
 } from "../types/machine";
 
-// ==========================================
-// ERROR HELPER
-// ==========================================
+/* =========================
+   HELPERS
+========================= */
 
-const getErrorMessage = async (
+async function getErrorMessage(
   response: Response,
-): Promise<string> => {
+): Promise<string> {
   try {
-    const errorData = await response.json();
+    const body = await response.json();
 
-    console.error(
-      "API Error Response:",
-      errorData,
-    );
-
-    // FastAPI validation errors
-    if (Array.isArray(errorData?.detail)) {
-      return errorData.detail
-        .map((item: any) => {
-          const field = item?.loc
-            ? item.loc
-                .filter(
-                  (location: string) =>
-                    location !== "body",
-                )
-                .join(".")
-            : "";
-
-          return field
-            ? `${field}: ${item?.msg || "Invalid value"}`
-            : item?.msg || "Validation error";
-        })
+    if (Array.isArray(body?.detail)) {
+      return body.detail
+        .map((item: any) => item?.msg)
+        .filter(Boolean)
         .join(", ");
     }
 
-    // Normal string detail
-    if (
-      typeof errorData?.detail === "string"
-    ) {
-      return errorData.detail;
+    if (typeof body?.detail === "string") {
+      return body.detail;
     }
 
-    if (
-      typeof errorData?.message === "string"
-    ) {
-      return errorData.message;
+    if (typeof body?.message === "string") {
+      return body.message;
     }
 
-    if (
-      typeof errorData?.error === "string"
-    ) {
-      return errorData.error;
+    if (typeof body?.error === "string") {
+      return body.error;
     }
-
-    return `Request failed with status ${response.status}`;
   } catch {
-    return `Request failed with status ${response.status}`;
-  }
-};
-
-// ==========================================
-// RESPONSE HELPER
-//
-// Supports:
-//
-// { data: ... }
-//
-// OR direct response
-// ==========================================
-
-const unwrapResponse = <T>(
-  result: ApiResponse<T> | T,
-): T => {
-  if (
-    typeof result === "object" &&
-    result !== null &&
-    "data" in result &&
-    result.data !== undefined
-  ) {
-    return result.data;
+    // Ignore invalid JSON
   }
 
-  return result as T;
-};
+  return `Request failed with status ${response.status}`;
+}
 
-// ==========================================
-// GET ALL MACHINES
-//
-// GET /machines
-// ==========================================
-
-export const getMachines = async (): Promise<
-  RechargeMachine[]
-> => {
-  const response = await fetch(
-    `${RFID_API_BASE_URL}/machines`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
-  );
-
+async function unwrapResponse<T>(
+  response: Response,
+): Promise<T> {
   if (!response.ok) {
     throw new Error(
       await getErrorMessage(response),
     );
   }
 
-  const result:
-    | ApiResponse<RechargeMachine[]>
-    | RechargeMachine[] =
-    await response.json();
+  const body = await response.json();
+
+  if (
+    body &&
+    typeof body === "object" &&
+    "data" in body
+  ) {
+    return body.data as T;
+  }
+
+  return body as T;
+}
+
+/* =========================
+   MACHINES
+========================= */
+
+export async function getMachines(): Promise<
+  RechargeMachine[]
+> {
+  const response = await fetch(
+    `${RFID_API_BASE_URL}/machines`,
+  );
 
   return unwrapResponse<RechargeMachine[]>(
-    result,
+    response,
   );
-};
+}
 
-export const createMachine = async (
+export async function createMachine(
   payload: CreateMachinePayload,
-): Promise<RechargeMachine> => {
-  console.log(
-    "CREATE MACHINE PAYLOAD:",
-    payload,
-  );
-
+): Promise<RechargeMachine> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/machines`,
     {
@@ -149,88 +96,33 @@ export const createMachine = async (
         "Content-Type": "application/json",
       },
 
-      body: JSON.stringify({
-        institution_id: payload.institution_id,
-        institution_name: payload.institution_name,
-        recharge_machine_block:
-          payload.recharge_machine_block,
-        ble_id: payload.ble_id,
-        initial_balance: Number(
-          payload.initial_balance,
-        ),
-      }),
+      body: JSON.stringify(payload),
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RechargeMachine>
-    | RechargeMachine =
-    await response.json();
-
   return unwrapResponse<RechargeMachine>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// GET MACHINE BALANCE
-//
-// GET /machines/:id/balance
-// ==========================================
-
-export const getMachineBalance = async (
+export async function getMachineBalance(
   machineId: string,
-): Promise<MachineBalance> => {
+): Promise<MachineBalance> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/machines/${encodeURIComponent(
       machineId,
     )}/balance`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
   );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<MachineBalance>
-    | MachineBalance =
-    await response.json();
 
   return unwrapResponse<MachineBalance>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// RECHARGE MACHINE
-//
-// POST /machines/:id/recharge
-//
-// Request:
-//
-// {
-//   amount: 2000
-// }
-// ==========================================
-
-export const rechargeMachine = async (
+export async function rechargeMachine(
   machineId: string,
   payload: RechargeMachinePayload,
-): Promise<RechargeMachine> => {
+): Promise<RechargeMachine> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/machines/${encodeURIComponent(
       machineId,
@@ -242,141 +134,64 @@ export const rechargeMachine = async (
         "Content-Type": "application/json",
       },
 
-      body: JSON.stringify({
-        amount: Number(payload.amount),
-      }),
+      body: JSON.stringify(payload),
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RechargeMachine>
-    | RechargeMachine =
-    await response.json();
-
   return unwrapResponse<RechargeMachine>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// DELETE MACHINE
-//
-// DELETE /machines/:id
-// ==========================================
-
-export const deleteMachine = async (
+export async function deleteMachine(
   machineId: string,
-): Promise<void> => {
+): Promise<void> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/machines/${encodeURIComponent(
       machineId,
     )}`,
     {
       method: "DELETE",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-};
+  await unwrapResponse<unknown>(response);
+}
 
-// ==========================================
-// GET ALL RFID CARDS
-//
-// GET /rfid/cards
-// ==========================================
+/* =========================
+   RFID CARDS
+========================= */
 
-export const getRFIDCards = async (): Promise<
+export async function getRFIDCards(): Promise<
   RFIDCard[]
-> => {
+> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/rfid/cards`,
-    {
-      method: "GET",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
   );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RFIDCard[]>
-    | RFIDCard[] =
-    await response.json();
 
   return unwrapResponse<RFIDCard[]>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// GET RFID CARD DETAILS
-//
-// GET /rfid/cards/:card_uuid
-// ==========================================
-
-export const getRFIDCardById = async (
+export async function getRFIDCardById(
   cardUuid: string,
-): Promise<RFIDCardDetails> => {
+): Promise<RFIDCardDetails> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/rfid/cards/${encodeURIComponent(
       cardUuid,
     )}`,
-    {
-      method: "GET",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
   );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RFIDCardDetails>
-    | RFIDCardDetails =
-    await response.json();
 
   return unwrapResponse<RFIDCardDetails>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// UPDATE RFID CARD STATUS
-//
-// PATCH /rfid/cards/:card_uuid/status
-// ==========================================
-
-export const updateRFIDCardStatus = async (
+export async function updateRFIDCardStatus(
   cardUuid: string,
   payload: UpdateCardStatusPayload,
-): Promise<RFIDCardDetails> => {
+): Promise<RFIDCardDetails> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/rfid/cards/${encodeURIComponent(
       cardUuid,
@@ -392,159 +207,66 @@ export const updateRFIDCardStatus = async (
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RFIDCardDetails>
-    | RFIDCardDetails =
-    await response.json();
-
   return unwrapResponse<RFIDCardDetails>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// DELETE RFID CARD
-//
-// DELETE /rfid/cards/:card_uuid
-// ==========================================
-
-export const deleteRFIDCard = async (
+export async function deleteRFIDCard(
   cardUuid: string,
-): Promise<void> => {
+): Promise<void> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/rfid/cards/${encodeURIComponent(
       cardUuid,
     )}`,
     {
       method: "DELETE",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
     },
   );
 
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-};
+  await unwrapResponse<unknown>(response);
+}
 
-// ==========================================
-// GET RFID CARD HISTORY
-//
-// GET /rfid/cards/:card_uuid/history
-// ==========================================
+/* =========================
+   RFID HISTORY
+========================= */
 
-export const getRFIDCardHistory = async (
+export async function getRFIDCardHistory(
   cardUuid: string,
-): Promise<RFIDTransaction[]> => {
+): Promise<RFIDTransaction[]> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/rfid/cards/${encodeURIComponent(
       cardUuid,
     )}/history`,
-    {
-      method: "GET",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
   );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RFIDTransaction[]>
-    | RFIDTransaction[] =
-    await response.json();
 
   return unwrapResponse<RFIDTransaction[]>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// GET ALL RFID TRANSACTIONS
-//
-// GET /rfid/history
-// ==========================================
-
-export const getRFIDHistory = async (): Promise<
+export async function getRFIDHistory(): Promise<
   RFIDTransaction[]
-> => {
+> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/rfid/history`,
-    {
-      method: "GET",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
   );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RFIDTransaction[]>
-    | RFIDTransaction[] =
-    await response.json();
 
   return unwrapResponse<RFIDTransaction[]>(
-    result,
+    response,
   );
-};
+}
 
-// ==========================================
-// GET SINGLE TRANSACTION RECEIPT
-//
-// GET /transactions/:session_id
-// ==========================================
-
-export const getTransactionBySessionId = async (
+export async function getTransactionBySessionId(
   sessionId: string,
-): Promise<RFIDTransaction> => {
+): Promise<RFIDTransaction> {
   const response = await fetch(
     `${RFID_API_BASE_URL}/transactions/${encodeURIComponent(
       sessionId,
     )}`,
-    {
-      method: "GET",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-    },
   );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
-  }
-
-  const result:
-    | ApiResponse<RFIDTransaction>
-    | RFIDTransaction =
-    await response.json();
 
   return unwrapResponse<RFIDTransaction>(
-    result,
+    response,
   );
-};
+}

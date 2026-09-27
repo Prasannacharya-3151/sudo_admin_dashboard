@@ -54,6 +54,7 @@ const getTransactionTypeStyle = (
 
     case "debit":
     case "payment":
+    case "spend":
       return "bg-red-100 text-red-700 border-red-200";
 
     default:
@@ -78,26 +79,27 @@ const TransactionIcon = ({
     normalizedType === "recharge"
   ) {
     return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 text-green-600">
-        <ArrowDownLeft className="h-5 w-5" />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
+        <ArrowDownLeft className="h-4 w-4" />
       </div>
     );
   }
 
   if (
     normalizedType === "debit" ||
-    normalizedType === "payment"
+    normalizedType === "payment" ||
+    normalizedType === "spend"
   ) {
     return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-600">
-        <ArrowUpRight className="h-5 w-5" />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+        <ArrowUpRight className="h-4 w-4" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-purple/10 text-brand-purple">
-      <ReceiptText className="h-5 w-5" />
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-purple/10 text-brand-purple">
+      <ReceiptText className="h-4 w-4" />
     </div>
   );
 };
@@ -204,22 +206,19 @@ export default function TransactionsPage() {
             transaction.card_uuid
               ?.toLowerCase()
               .includes(query) ||
-            transaction.machine_id
+            transaction.session_id
               ?.toLowerCase()
               .includes(query) ||
-            transaction.description
+            transaction.txn_type
               ?.toLowerCase()
               .includes(query) ||
-            transaction.transaction_type
-              ?.toLowerCase()
-              .includes(query) ||
-            transaction.id
+            transaction.location
               ?.toLowerCase()
               .includes(query);
 
           const matchesType =
             transactionType === "all" ||
-            transaction.transaction_type
+            transaction.txn_type
               ?.toLowerCase() ===
               transactionType.toLowerCase();
 
@@ -247,7 +246,7 @@ export default function TransactionsPage() {
       transactions
         .filter((transaction) => {
           const type =
-            transaction.transaction_type?.toLowerCase();
+            transaction.txn_type?.toLowerCase();
 
           return (
             type === "credit" ||
@@ -257,7 +256,9 @@ export default function TransactionsPage() {
         .reduce(
           (total, transaction) =>
             total +
-            Number(transaction.amount || 0),
+            Number(
+              transaction.amount || 0,
+            ),
           0,
         );
 
@@ -265,17 +266,20 @@ export default function TransactionsPage() {
       transactions
         .filter((transaction) => {
           const type =
-            transaction.transaction_type?.toLowerCase();
+            transaction.txn_type?.toLowerCase();
 
           return (
             type === "debit" ||
-            type === "payment"
+            type === "payment" ||
+            type === "spend"
           );
         })
         .reduce(
           (total, transaction) =>
             total +
-            Number(transaction.amount || 0),
+            Number(
+              transaction.amount || 0,
+            ),
           0,
         );
 
@@ -291,7 +295,7 @@ export default function TransactionsPage() {
   // ==========================================
 
   const formatCurrency = (
-    amount?: number,
+    amount?: number | string,
   ) => {
     return new Intl.NumberFormat(
       "en-IN",
@@ -314,7 +318,11 @@ export default function TransactionsPage() {
 
     const parsedDate = new Date(date);
 
-    if (Number.isNaN(parsedDate.getTime())) {
+    if (
+      Number.isNaN(
+        parsedDate.getTime(),
+      )
+    ) {
       return date;
     }
 
@@ -349,7 +357,8 @@ export default function TransactionsPage() {
 
     if (
       normalizedType === "debit" ||
-      normalizedType === "payment"
+      normalizedType === "payment" ||
+      normalizedType === "spend"
     ) {
       return "text-red-600";
     }
@@ -376,7 +385,8 @@ export default function TransactionsPage() {
 
     if (
       normalizedType === "debit" ||
-      normalizedType === "payment"
+      normalizedType === "payment" ||
+      normalizedType === "spend"
     ) {
       return "-";
     }
@@ -407,14 +417,12 @@ export default function TransactionsPage() {
   // ==========================================
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-5">
       {/* ======================================
           PAGE HEADER
       ====================================== */}
 
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Transactions
@@ -430,7 +438,7 @@ export default function TransactionsPage() {
           type="button"
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 self-start rounded-full bg-brand-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
         >
           <RefreshCw
             className={`h-4 w-4 ${
@@ -444,91 +452,70 @@ export default function TransactionsPage() {
             ? "Refreshing..."
             : "Refresh"}
         </button>
-
       </div>
 
       {/* ======================================
           STATISTICS
       ====================================== */}
 
-      <div className="grid gap-5 md:grid-cols-3">
-
+      <div className="grid gap-4 md:grid-cols-3">
         {/* TOTAL TRANSACTIONS */}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div>
+            <p className="text-sm font-medium text-gray-500">
+              Total Transactions
+            </p>
 
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Transactions
-              </p>
-
-              <h3 className="mt-2 text-3xl font-bold text-gray-900">
-                {statistics.totalTransactions}
-              </h3>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-purple/10 text-brand-purple">
-              <ReceiptText className="h-6 w-6" />
-            </div>
-
+            <h3 className="mt-2 text-2xl font-bold text-gray-900">
+              {statistics.totalTransactions}
+            </h3>
           </div>
 
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-purple/10 text-brand-purple">
+            <ReceiptText className="h-5 w-5" />
+          </div>
         </div>
 
         {/* TOTAL CREDIT */}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div>
+            <p className="text-sm font-medium text-gray-500">
+              Total Credit
+            </p>
 
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Credit
-              </p>
-
-              <h3 className="mt-2 text-2xl font-bold text-green-600">
-                {formatCurrency(
-                  statistics.totalCredit,
-                )}
-              </h3>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-green-600">
-              <ArrowDownLeft className="h-6 w-6" />
-            </div>
-
+            <h3 className="mt-2 text-2xl font-bold text-green-600">
+              {formatCurrency(
+                statistics.totalCredit,
+              )}
+            </h3>
           </div>
 
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
+            <ArrowDownLeft className="h-5 w-5" />
+          </div>
         </div>
 
         {/* TOTAL DEBIT */}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div>
+            <p className="text-sm font-medium text-gray-500">
+              Total Debit
+            </p>
 
-          <div className="flex items-center justify-between">
-
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Debit
-              </p>
-
-              <h3 className="mt-2 text-2xl font-bold text-red-600">
-                {formatCurrency(
-                  statistics.totalDebit,
-                )}
-              </h3>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600">
-              <ArrowUpRight className="h-6 w-6" />
-            </div>
-
+            <h3 className="mt-2 text-2xl font-bold text-red-600">
+              {formatCurrency(
+                statistics.totalDebit,
+              )}
+            </h3>
           </div>
 
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <ArrowUpRight className="h-5 w-5" />
+          </div>
         </div>
-
       </div>
 
       {/* ======================================
@@ -536,8 +523,7 @@ export default function TransactionsPage() {
       ====================================== */}
 
       {error && (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4">
-
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4">
           <p className="text-sm font-medium text-red-600">
             {error}
           </p>
@@ -549,7 +535,6 @@ export default function TransactionsPage() {
           >
             Try Again
           </button>
-
         </div>
       )}
 
@@ -557,15 +542,12 @@ export default function TransactionsPage() {
           FILTER SECTION
       ====================================== */}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           {/* SEARCH */}
 
           <div className="relative w-full lg:max-w-md">
-
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
             <input
               type="text"
@@ -575,10 +557,9 @@ export default function TransactionsPage() {
                   event.target.value,
                 )
               }
-              placeholder="Search card, machine or transaction..."
-              className="w-full rounded-xl border border-gray-200 py-2.5 pl-11 pr-4 text-sm outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+              placeholder="Search card, session or transaction..."
+              className="w-full rounded-full border border-gray-200 py-2.5 pl-11 pr-4 text-sm outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
             />
-
           </div>
 
           {/* TYPE FILTER */}
@@ -590,10 +571,14 @@ export default function TransactionsPage() {
                 event.target.value,
               )
             }
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+            className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
           >
             <option value="all">
               All Transactions
+            </option>
+
+            <option value="spend">
+              Spend
             </option>
 
             <option value="credit">
@@ -612,9 +597,7 @@ export default function TransactionsPage() {
               Payment
             </option>
           </select>
-
         </div>
-
       </div>
 
       {/* ======================================
@@ -622,11 +605,9 @@ export default function TransactionsPage() {
       ====================================== */}
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-
         {/* TABLE HEADER */}
 
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-gray-900">
               Transaction History
@@ -642,61 +623,57 @@ export default function TransactionsPage() {
             </p>
           </div>
 
-          <Wallet className="h-6 w-6 text-gray-400" />
-
+          <Wallet className="h-5 w-5 text-gray-400" />
         </div>
 
         {/* DESKTOP TABLE */}
 
         <div className="hidden overflow-x-auto lg:block">
-
           <table className="w-full">
-
             <thead className="bg-gray-50">
-
               <tr>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Transaction
                 </th>
 
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   RFID Card
                 </th>
 
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Machine
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Session
                 </th>
 
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Type
                 </th>
 
-                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Amount
                 </th>
 
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Date
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Balance After
                 </th>
 
-              </tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Location
+                </th>
 
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Date
+                </th>
+              </tr>
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-
               {filteredTransactions.length === 0 ? (
-
                 <tr>
-
                   <td
-                    colSpan={6}
+                    colSpan={8}
                     className="px-6 py-16 text-center"
                   >
-
                     <div className="flex flex-col items-center">
-
                       <ReceiptText className="h-10 w-10 text-gray-300" />
 
                       <h3 className="mt-4 text-base font-semibold text-gray-700">
@@ -707,150 +684,139 @@ export default function TransactionsPage() {
                         Transactions will appear here
                         once RFID activity occurs.
                       </p>
-
                     </div>
-
                   </td>
-
                 </tr>
-
               ) : (
-
                 filteredTransactions.map(
                   (
                     transaction,
                     index,
                   ) => {
-
                     const transactionKey =
-                      transaction.id ||
+                      transaction.session_id ||
                       `${transaction.card_uuid}-${transaction.created_at}-${index}`;
 
                     return (
-
                       <tr
                         key={transactionKey}
                         className="transition hover:bg-gray-50"
                       >
-
                         {/* TRANSACTION */}
 
                         <td className="px-6 py-4">
-
                           <div className="flex items-center gap-3">
-
                             <TransactionIcon
                               type={
-                                transaction.transaction_type
+                                transaction.txn_type
                               }
                             />
 
                             <div>
-
                               <p className="font-semibold text-gray-900">
-                                {transaction.description ||
-                                  "RFID Transaction"}
+                                {getTransactionTypeLabel(
+                                  transaction.txn_type,
+                                )}
                               </p>
 
                               <p className="mt-1 text-xs text-gray-400">
-                                ID:{" "}
-                                {transaction.id ||
+                                Session:{" "}
+                                {transaction.session_id ||
                                   "-"}
                               </p>
-
                             </div>
-
                           </div>
-
                         </td>
 
                         {/* CARD */}
 
                         <td className="px-6 py-4">
-
                           <div className="flex items-center gap-2">
-
                             <CreditCard className="h-4 w-4 text-gray-400" />
 
                             <span className="font-medium text-gray-700">
                               {transaction.card_uuid ||
                                 "-"}
                             </span>
-
                           </div>
-
                         </td>
 
-                        {/* MACHINE */}
+                        {/* SESSION */}
 
                         <td className="px-6 py-4">
-
-                          <span className="font-medium text-gray-700">
-                            {transaction.machine_id ||
+                          <span className="block max-w-[220px] truncate font-mono text-xs text-gray-600">
+                            {transaction.session_id ||
                               "-"}
                           </span>
-
                         </td>
 
                         {/* TYPE */}
 
                         <td className="px-6 py-4">
-
                           <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getTransactionTypeStyle(
-                              transaction.transaction_type,
+                            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getTransactionTypeStyle(
+                              transaction.txn_type,
                             )}`}
                           >
                             {getTransactionTypeLabel(
-                              transaction.transaction_type,
+                              transaction.txn_type,
                             )}
                           </span>
-
                         </td>
 
                         {/* AMOUNT */}
 
                         <td className="px-6 py-4 text-right">
-
                           <span
                             className={`font-bold ${getAmountStyle(
-                              transaction.transaction_type,
+                              transaction.txn_type,
                             )}`}
                           >
                             {getAmountPrefix(
-                              transaction.transaction_type,
+                              transaction.txn_type,
                             )}
+
                             {formatCurrency(
                               transaction.amount,
                             )}
                           </span>
+                        </td>
 
+                        {/* BALANCE AFTER */}
+
+                        <td className="px-6 py-4">
+                          <span className="font-medium text-gray-700">
+                            {formatCurrency(
+                              transaction.wallet_bal_after,
+                            )}
+                          </span>
+                        </td>
+
+                        {/* LOCATION */}
+
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-600">
+                            {transaction.location ||
+                              "-"}
+                          </span>
                         </td>
 
                         {/* DATE */}
 
                         <td className="px-6 py-4">
-
                           <span className="text-sm text-gray-600">
                             {formatDate(
                               transaction.created_at,
                             )}
                           </span>
-
                         </td>
-
                       </tr>
-
                     );
                   },
                 )
-
               )}
-
             </tbody>
-
           </table>
-
         </div>
 
         {/* ====================================
@@ -858,11 +824,8 @@ export default function TransactionsPage() {
         ==================================== */}
 
         <div className="divide-y divide-gray-100 lg:hidden">
-
           {filteredTransactions.length === 0 ? (
-
             <div className="px-6 py-16 text-center">
-
               <ReceiptText className="mx-auto h-10 w-10 text-gray-300" />
 
               <h3 className="mt-4 text-base font-semibold text-gray-700">
@@ -873,45 +836,37 @@ export default function TransactionsPage() {
                 Transactions will appear here once
                 RFID activity occurs.
               </p>
-
             </div>
-
           ) : (
-
             filteredTransactions.map(
               (
                 transaction,
                 index,
               ) => {
-
                 const transactionKey =
-                  transaction.id ||
+                  transaction.session_id ||
                   `${transaction.card_uuid}-${transaction.created_at}-${index}`;
 
                 return (
-
                   <div
                     key={transactionKey}
-                    className="space-y-4 p-5"
+                    className="space-y-3 p-4"
                   >
-
                     {/* TOP */}
 
                     <div className="flex items-start justify-between gap-4">
-
                       <div className="flex items-center gap-3">
-
                         <TransactionIcon
                           type={
-                            transaction.transaction_type
+                            transaction.txn_type
                           }
                         />
 
                         <div>
-
                           <p className="font-semibold text-gray-900">
-                            {transaction.description ||
-                              "RFID Transaction"}
+                            {getTransactionTypeLabel(
+                              transaction.txn_type,
+                            )}
                           </p>
 
                           <p className="mt-1 text-xs text-gray-400">
@@ -919,32 +874,28 @@ export default function TransactionsPage() {
                               transaction.created_at,
                             )}
                           </p>
-
                         </div>
-
                       </div>
 
                       <span
                         className={`font-bold ${getAmountStyle(
-                          transaction.transaction_type,
+                          transaction.txn_type,
                         )}`}
                       >
                         {getAmountPrefix(
-                          transaction.transaction_type,
+                          transaction.txn_type,
                         )}
+
                         {formatCurrency(
                           transaction.amount,
                         )}
                       </span>
-
                     </div>
 
                     {/* DETAILS */}
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
-
                       <div>
-
                         <p className="text-xs text-gray-400">
                           RFID Card
                         </p>
@@ -953,48 +904,61 @@ export default function TransactionsPage() {
                           {transaction.card_uuid ||
                             "-"}
                         </p>
-
                       </div>
 
                       <div>
-
                         <p className="text-xs text-gray-400">
-                          Machine
+                          Session ID
+                        </p>
+
+                        <p className="mt-1 truncate font-medium text-gray-700">
+                          {transaction.session_id ||
+                            "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-400">
+                          Balance After
                         </p>
 
                         <p className="mt-1 font-medium text-gray-700">
-                          {transaction.machine_id ||
-                            "-"}
+                          {formatCurrency(
+                            transaction.wallet_bal_after,
+                          )}
                         </p>
-
                       </div>
 
+                      <div>
+                        <p className="text-xs text-gray-400">
+                          Location
+                        </p>
+
+                        <p className="mt-1 font-medium text-gray-700">
+                          {transaction.location ||
+                            "-"}
+                        </p>
+                      </div>
                     </div>
 
                     {/* TYPE */}
 
                     <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getTransactionTypeStyle(
-                        transaction.transaction_type,
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getTransactionTypeStyle(
+                        transaction.txn_type,
                       )}`}
                     >
                       {getTransactionTypeLabel(
-                        transaction.transaction_type,
+                        transaction.txn_type,
                       )}
                     </span>
-
                   </div>
-
                 );
               },
             )
-
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }

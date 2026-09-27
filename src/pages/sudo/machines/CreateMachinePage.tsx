@@ -50,20 +50,6 @@ export default function CreateMachinePage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ==========================================
-  // LOAD INSTITUTIONS
-  //
-  // Runs once on mount only. accessToken deliberately
-  // excluded from the dependency array — it rotates
-  // silently every ~15 minutes via proactive refresh,
-  // and watching it here was re-fetching (and re-showing
-  // the loading state) every time the token rotated in
-  // the background, even though this dropdown's data
-  // doesn't need to refresh on that schedule.
-  // fetchInstitutions still reads the current accessToken
-  // via closure at the moment it actually runs.
-  // ==========================================
-
   useEffect(() => {
     const fetchInstitutions = async () => {
       if (!accessToken) {
@@ -243,7 +229,7 @@ export default function CreateMachinePage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="mx-auto w-full">
       <div className="mb-8">
         <button
           type="button"
@@ -255,10 +241,7 @@ export default function CreateMachinePage() {
         </button>
 
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-purple/10 text-brand-purple">
-            <Cpu className="h-7 w-7" />
-          </div>
-
+       
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               Create Recharge Machine
@@ -307,7 +290,7 @@ export default function CreateMachinePage() {
                   (previous) => !previous,
                 )
               }
-              className="flex h-12 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-left text-sm transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+              className="flex h-12 w-full items-center justify-between rounded-full border border-gray-200 bg-white px-5 text-left text-sm transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
             >
               <div className="flex items-center gap-3">
                 <Building2 className="h-5 w-5 shrink-0 text-gray-400" />
@@ -341,7 +324,7 @@ export default function CreateMachinePage() {
             </button>
 
             {institutionDropdownOpen && (
-              <div className="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
+              <div className="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl">
                 {institutions.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500">
                     No institutions found
@@ -362,7 +345,7 @@ export default function CreateMachinePage() {
                               institution,
                             )
                           }
-                          className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm transition ${
+                          className={`flex w-full items-center justify-between rounded-full px-4 py-3 text-left text-sm transition ${
                             isSelected
                               ? "bg-brand-purple/10 text-brand-purple"
                               : "text-gray-700 hover:bg-gray-50"
@@ -423,7 +406,7 @@ export default function CreateMachinePage() {
                 onChange={handleChange}
                 placeholder="Example: Block A"
                 disabled={isSubmitting}
-                className="h-12 w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -455,7 +438,7 @@ export default function CreateMachinePage() {
                 onChange={handleChange}
                 placeholder="Example: BLE-001"
                 disabled={isSubmitting}
-                className="h-12 w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -490,7 +473,7 @@ export default function CreateMachinePage() {
                 onKeyDown={handleBalanceKeyDown}
                 placeholder="Enter initial balance"
                 disabled={isSubmitting}
-                className="h-12 w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                className="h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
               />
             </div>
 
@@ -506,7 +489,7 @@ export default function CreateMachinePage() {
             type="button"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
@@ -517,7 +500,7 @@ export default function CreateMachinePage() {
               isSubmitting ||
               isLoadingInstitutions
             }
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand-purple px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-purple px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <>

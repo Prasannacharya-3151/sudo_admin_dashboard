@@ -278,7 +278,7 @@ export default function MachinesPage() {
               void fetchMachines(true)
             }
             disabled={isRefreshing}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw
               className={`h-4 w-4 ${
@@ -298,7 +298,7 @@ export default function MachinesPage() {
                 "/sudo/machines/create",
               )
             }
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-purple px-5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
 
@@ -320,7 +320,7 @@ export default function MachinesPage() {
               </p>
             </div>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-purple/10">
               <Cpu className="h-5 w-5 text-brand-purple" />
             </div>
           </div>
@@ -345,7 +345,7 @@ export default function MachinesPage() {
               </p>
             </div>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50">
               <div className="h-3 w-3 rounded-full bg-green-500" />
             </div>
           </div>
@@ -375,7 +375,7 @@ export default function MachinesPage() {
               </p>
             </div>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-50">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-yellow-50">
               <Wallet className="h-5 w-5 text-yellow-600" />
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function MachinesPage() {
       </div>
 
       {error && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+        <div className="flex flex-col gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
 
@@ -403,7 +403,7 @@ export default function MachinesPage() {
             onClick={() =>
               void fetchMachines()
             }
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-100"
+            className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-100"
           >
             Try Again
           </button>
@@ -427,7 +427,7 @@ export default function MachinesPage() {
           </div>
 
           <div className="relative w-full lg:w-[360px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
             <input
               type="text"
@@ -438,14 +438,14 @@ export default function MachinesPage() {
                 )
               }
               placeholder="Search institution, block or BLE ID..."
-              className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+              className="h-11 w-full rounded-full border border-gray-200 bg-white pl-11 pr-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
             />
           </div>
         </div>
 
         {filteredMachines.length === 0 ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
               <Cpu className="h-8 w-8 text-gray-400" />
             </div>
 
@@ -469,7 +469,7 @@ export default function MachinesPage() {
                     "/sudo/machines/create",
                   )
                 }
-                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                className="mt-5 inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
               >
                 <Plus className="h-4 w-4" />
 
@@ -519,7 +519,7 @@ export default function MachinesPage() {
                         >
                           <td className="px-6 py-5">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-purple/10">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple/10">
                                 <Building2 className="h-5 w-5 text-brand-purple" />
                               </div>
 
@@ -594,7 +594,7 @@ export default function MachinesPage() {
                                   )
                                 }
                                 title="View Machine"
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition hover:border-brand-purple hover:bg-brand-purple/5 hover:text-brand-purple"
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand-purple hover:bg-brand-purple/5 hover:text-brand-purple"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
@@ -611,7 +611,7 @@ export default function MachinesPage() {
                                   )
                                 }
                                 title="Delete Machine"
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {deletingId ===
                                 machine.id ? (
@@ -639,7 +639,7 @@ export default function MachinesPage() {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-purple/10">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-purple/10">
                           <Cpu className="h-5 w-5 text-brand-purple" />
                         </div>
 
@@ -705,7 +705,7 @@ export default function MachinesPage() {
                             `/sudo/machines/${machine.id}`,
                           )
                         }
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                       >
                         <Eye className="h-4 w-4" />
 
@@ -723,7 +723,7 @@ export default function MachinesPage() {
                             machine,
                           )
                         }
-                        className="flex items-center justify-center rounded-xl border border-red-100 px-4 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
+                        className="flex items-center justify-center rounded-full border border-red-100 px-4 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         {deletingId ===
                         machine.id ? (

@@ -491,7 +491,7 @@ export default function MachineDetailsPage() {
           <button
             type="button"
             onClick={() => navigate("/sudo/machines")}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Machines
@@ -547,7 +547,7 @@ export default function MachineDetailsPage() {
             type="button"
             onClick={() => loadMachine(true)}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCcw
               className={`h-4 w-4 ${
@@ -564,7 +564,7 @@ export default function MachineDetailsPage() {
                 `/sudo/machines/${machine.id}/recharge`,
               )
             }
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            className="inline-flex items-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
             <Wallet className="h-4 w-4" />
             Recharge Machine
@@ -574,7 +574,7 @@ export default function MachineDetailsPage() {
             type="button"
             onClick={handleDelete}
             disabled={isDeleting}
-            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -607,7 +607,7 @@ export default function MachineDetailsPage() {
             </p>
           </div>
 
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm">
             <CircleDollarSign className="h-10 w-10 text-white" />
           </div>
         </div>
@@ -616,7 +616,7 @@ export default function MachineDetailsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-50">
               <Cpu className="h-5 w-5 text-brand-purple" />
             </div>
 
@@ -695,7 +695,7 @@ export default function MachineDetailsPage() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-50">
               <Building2 className="h-5 w-5 text-blue-600" />
             </div>
 
@@ -779,7 +779,7 @@ export default function MachineDetailsPage() {
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-50">
               <UsersIcon className="h-5 w-5 text-indigo-600" />
             </div>
 
@@ -799,7 +799,7 @@ export default function MachineDetailsPage() {
           <button
             type="button"
             onClick={openWardenModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
             <UserPlus className="h-4 w-4" />
             Add Warden
@@ -811,7 +811,7 @@ export default function MachineDetailsPage() {
             <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
           </div>
         ) : institutionWardens.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 px-6 py-10 text-center">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 px-6 py-10 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
               <UsersIcon className="h-6 w-6 text-gray-400" />
             </div>
@@ -833,7 +833,7 @@ export default function MachineDetailsPage() {
                 className="flex items-center justify-between gap-4 py-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-purple/10">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple/10">
                     <Mail className="h-4 w-4 text-brand-purple" />
                   </div>
 
@@ -855,7 +855,7 @@ export default function MachineDetailsPage() {
                     void handleDeleteUser(user)
                   }
                   title="Delete Warden"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {deletingUserId === user.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -871,7 +871,7 @@ export default function MachineDetailsPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50">
             <Wallet className="h-5 w-5 text-green-600" />
           </div>
 
@@ -887,7 +887,7 @@ export default function MachineDetailsPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
-          <div className="rounded-xl border border-purple-100 bg-purple-50 p-5">
+          <div className="rounded-2xl border border-purple-100 bg-purple-50 p-5">
             <p className="text-sm font-medium text-purple-600">
               Current Balance
             </p>
@@ -897,7 +897,7 @@ export default function MachineDetailsPage() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
             <p className="text-sm font-medium text-gray-500">
               Last Updated
             </p>
@@ -932,7 +932,7 @@ export default function MachineDetailsPage() {
                 `/sudo/machines/${machine.id}/recharge`,
               )
             }
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           >
             <Wallet className="h-4 w-4" />
             Recharge Machine
@@ -949,7 +949,7 @@ export default function MachineDetailsPage() {
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10 text-brand-purple">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-purple/10 text-brand-purple">
                   <UserPlus className="h-5 w-5" />
                 </div>
 
@@ -968,7 +968,7 @@ export default function MachineDetailsPage() {
                 type="button"
                 onClick={closeWardenModal}
                 disabled={isCreatingWarden}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -978,7 +978,7 @@ export default function MachineDetailsPage() {
               onSubmit={handleCreateWarden}
               className="space-y-5 px-6 py-6"
             >
-              <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <Building2 className="h-5 w-5 text-gray-400" />
 
                 <div>
@@ -1014,7 +1014,7 @@ export default function MachineDetailsPage() {
                     onChange={handleWardenChange}
                     placeholder="warden@college.com"
                     disabled={isCreatingWarden}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                    className="h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
                   />
                 </div>
               </div>
@@ -1041,7 +1041,7 @@ export default function MachineDetailsPage() {
                     onChange={handleWardenChange}
                     placeholder="Enter password"
                     disabled={isCreatingWarden}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                    className="h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
                   />
                 </div>
 
@@ -1055,7 +1055,7 @@ export default function MachineDetailsPage() {
                   type="button"
                   onClick={closeWardenModal}
                   disabled={isCreatingWarden}
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -1063,7 +1063,7 @@ export default function MachineDetailsPage() {
                 <button
                   type="submit"
                   disabled={isCreatingWarden}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand-purple px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-purple px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isCreatingWarden ? (
                     <>

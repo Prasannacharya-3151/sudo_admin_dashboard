@@ -257,7 +257,7 @@ export default function RechargeMachinePage() {
           onClick={() =>
             navigate("/sudo/machines")
           }
-          className="rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          className="rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         >
           Back to Machines
         </button>
@@ -294,7 +294,7 @@ export default function RechargeMachinePage() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="mb-2 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/10">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-purple/10">
                 <Wallet className="h-5 w-5 text-brand-purple" />
               </div>
 
@@ -314,7 +314,7 @@ export default function RechargeMachinePage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50">
               <Monitor className="h-5 w-5 text-brand-purple" />
             </div>
 
@@ -437,7 +437,7 @@ export default function RechargeMachinePage() {
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-7">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
                 <Plus className="h-5 w-5 text-green-600" />
               </div>
 
@@ -481,7 +481,7 @@ export default function RechargeMachinePage() {
                   }
                   placeholder="Enter amount"
                   disabled={isSubmitting}
-                  className="w-full rounded-xl border border-gray-200 py-4 pl-12 pr-4 text-lg font-semibold text-gray-900 outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  className="w-full rounded-full border border-gray-200 py-4 pl-12 pr-5 text-lg font-semibold text-gray-900 outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
                 />
               </div>
             </div>
@@ -507,7 +507,7 @@ export default function RechargeMachinePage() {
                     onClick={() =>
                       handleQuickAmount(value)
                     }
-                    className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                    className={`rounded-full border px-3 py-3 text-sm font-semibold transition ${
                       Number(amount) === value
                         ? "border-brand-purple bg-brand-purple text-white"
                         : "border-gray-200 bg-white text-gray-700 hover:border-brand-purple hover:text-brand-purple"
@@ -524,7 +524,7 @@ export default function RechargeMachinePage() {
 
             {amount &&
               rechargeAmount > 0 && (
-                <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
+                <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
                       Current Balance
@@ -579,7 +579,7 @@ export default function RechargeMachinePage() {
                     `/sudo/machines/${machineId}`,
                   )
                 }
-                className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -591,7 +591,7 @@ export default function RechargeMachinePage() {
                   !amount ||
                   rechargeAmount <= 0
                 }
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-purple px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>
