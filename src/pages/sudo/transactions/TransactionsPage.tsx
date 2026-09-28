@@ -641,10 +641,6 @@ export default function TransactionsPage() {
                 </th>
 
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Session
-                </th>
-
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Type
                 </th>
 
@@ -719,11 +715,7 @@ export default function TransactionsPage() {
                                 )}
                               </p>
 
-                              <p className="mt-1 text-xs text-gray-400">
-                                Session:{" "}
-                                {transaction.session_id ||
-                                  "-"}
-                              </p>
+                              
                             </div>
                           </div>
                         </td>
@@ -743,12 +735,7 @@ export default function TransactionsPage() {
 
                         {/* SESSION */}
 
-                        <td className="px-6 py-4">
-                          <span className="block max-w-[220px] truncate font-mono text-xs text-gray-600">
-                            {transaction.session_id ||
-                              "-"}
-                          </span>
-                        </td>
+                       
 
                         {/* TYPE */}
 

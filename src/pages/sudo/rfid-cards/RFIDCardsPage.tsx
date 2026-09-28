@@ -79,7 +79,7 @@ export default function RFIDCardsPage() {
         card.std_name,
         card.std_reg,
         card.std_id,
-        card.group,
+        card.combination,
         card.status,
       ]
         .filter(Boolean)
@@ -308,10 +308,6 @@ export default function RFIDCardsPage() {
                   </th>
 
                   <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Group
-                  </th>
-
-                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Balance
                   </th>
 
@@ -358,10 +354,6 @@ export default function RFIDCardsPage() {
                       <code className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-700">
                         {card.card_uuid}
                       </code>
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-gray-700">
-                      {card.group || "—"}
                     </td>
 
                     <td className="px-5 py-4 text-sm font-semibold text-gray-900">

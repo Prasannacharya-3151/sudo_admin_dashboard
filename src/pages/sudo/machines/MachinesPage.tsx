@@ -519,9 +519,7 @@ export default function MachinesPage() {
                         >
                           <td className="px-6 py-5">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple/10">
-                                <Building2 className="h-5 w-5 text-brand-purple" />
-                              </div>
+                             
 
                               <div>
                                 <p className="font-semibold text-gray-900">
@@ -529,10 +527,6 @@ export default function MachinesPage() {
                                     "Not specified"}
                                 </p>
 
-                                <p className="mt-1 text-xs font-mono text-gray-500">
-                                  {machine.institution_id ||
-                                    "—"}
-                                </p>
                               </div>
                             </div>
                           </td>

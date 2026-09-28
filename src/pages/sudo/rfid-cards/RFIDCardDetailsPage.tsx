@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CreditCard,
   Trash2,
-  User,
   Wallet,
   RefreshCw,
 } from "lucide-react";
@@ -399,10 +398,6 @@ export default function RFIDCardDetailsPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-            <User size={19} />
-          </div>
-
           <div>
             <h2 className="font-semibold text-gray-900">
               Student Information
@@ -435,23 +430,14 @@ export default function RFIDCardDetailsPage() {
             </p>
           </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              Student ID
-            </p>
-
-            <p className="mt-1 break-all text-sm font-medium text-gray-900">
-              {card.std_id || "—"}
-            </p>
-          </div>
 
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              Group
+              Combination
             </p>
 
             <p className="mt-1 text-sm font-medium text-gray-900">
-              {card.group || "—"}
+              {card.combination || "—"}
             </p>
           </div>
 
@@ -576,10 +562,6 @@ export default function RFIDCardDetailsPage() {
                   </th>
 
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Session ID
-                  </th>
-
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Amount
                   </th>
 
@@ -621,13 +603,6 @@ export default function RFIDCardDetailsPage() {
                           </span>
                         </td>
 
-                        <td className="px-6 py-4">
-                          <code className="text-xs text-gray-600">
-                            {
-                              transaction.session_id
-                            }
-                          </code>
-                        </td>
 
                         <td
                           className={`px-6 py-4 text-sm font-semibold ${

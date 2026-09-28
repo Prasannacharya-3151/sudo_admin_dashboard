@@ -63,7 +63,7 @@ export interface RFIDCard {
   std_id?: string;
   std_name?: string;
   std_reg?: string;
-  group?: string;
+  combination?: string;
 
   machine_id?: string;
 

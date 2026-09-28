@@ -8,8 +8,8 @@
 
 export interface PrintHistoryPaymentSummary {
   total_paid: number;
-  method: string | null;
-  transaction_ids: string[];
+  method?: string | null;
+  transaction_ids?: string[];
 }
 
 // ==========================================
@@ -43,15 +43,21 @@ export interface PrintHistorySession {
   session_type: string;
   kiosk_id: string;
   kiosk_name: string;
+
+  /**
+   * RFID card attached to the session.
+   *
+   * Example:
+   * "E95ABD2A"
+   */
+  rfid_id?: string | null;
   status: string;
   total_amount: number;
   total_sheets: number;
   job_status: string;
-  completed_at: string | null;
+  completed_at?: string | null;
   created_at: string;
-
   payment_summary: PrintHistoryPaymentSummary;
-
   documents: PrintHistoryDocument[];
 }
 

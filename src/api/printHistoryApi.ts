@@ -18,6 +18,7 @@ const getErrorMessage = async (
     return (
       data?.message ||
       data?.error ||
+      data?.detail ||
       "Something went wrong"
     );
   } catch {
@@ -115,7 +116,10 @@ export const getPrintHistory = async (
   // ----------------------------------------
 
   if (filters.from) {
-    params.set("from", filters.from);
+    params.set(
+      "from",
+      filters.from,
+    );
   }
 
   // ----------------------------------------
@@ -123,7 +127,10 @@ export const getPrintHistory = async (
   // ----------------------------------------
 
   if (filters.to) {
-    params.set("to", filters.to);
+    params.set(
+      "to",
+      filters.to,
+    );
   }
 
   // ----------------------------------------
@@ -156,8 +163,13 @@ export const getPrintHistory = async (
 
   const response = await fetch(url, {
     method: "GET",
+
     headers: getAuthHeaders(),
   });
+
+  // ----------------------------------------
+  // ERROR
+  // ----------------------------------------
 
   if (!response.ok) {
     const message =
@@ -165,6 +177,10 @@ export const getPrintHistory = async (
 
     throw new Error(message);
   }
+
+  // ----------------------------------------
+  // RESPONSE
+  // ----------------------------------------
 
   const result: PrintHistoryResponse =
     await response.json();

@@ -616,9 +616,7 @@ export default function MachineDetailsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-50">
-              <Cpu className="h-5 w-5 text-brand-purple" />
-            </div>
+           
 
             <div>
               <h2 className="font-bold text-gray-900">
@@ -632,20 +630,7 @@ export default function MachineDetailsPage() {
           </div>
 
           <div className="space-y-5">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
-              <div className="flex items-center gap-3">
-                <Cpu className="h-4 w-4 text-gray-400" />
-
-                <span className="text-sm text-gray-500">
-                  Machine ID
-                </span>
-              </div>
-
-              <span className="max-w-[60%] break-all text-right text-sm font-semibold text-gray-900">
-                {machine.id}
-              </span>
-            </div>
-
+          
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-gray-400" />
@@ -695,9 +680,7 @@ export default function MachineDetailsPage() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-50">
-              <Building2 className="h-5 w-5 text-blue-600" />
-            </div>
+            
 
             <div>
               <h2 className="font-bold text-gray-900">
@@ -711,20 +694,7 @@ export default function MachineDetailsPage() {
           </div>
 
           <div className="space-y-5">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
-              <div className="flex items-center gap-3">
-                <Building2 className="h-4 w-4 text-gray-400" />
-
-                <span className="text-sm text-gray-500">
-                  Institution ID
-                </span>
-              </div>
-
-              <span className="max-w-[60%] break-all text-right text-sm font-semibold text-gray-900">
-                {machine.institution_id ||
-                  "Not available"}
-              </span>
-            </div>
+            
 
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
               <div className="flex items-center gap-3">
@@ -842,9 +812,7 @@ export default function MachineDetailsPage() {
                       {user.email}
                     </p>
 
-                    <p className="mt-0.5 truncate font-mono text-xs text-gray-400">
-                      {user.id}
-                    </p>
+                   
                   </div>
                 </div>
 
@@ -871,9 +839,7 @@ export default function MachineDetailsPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50">
-            <Wallet className="h-5 w-5 text-green-600" />
-          </div>
+         
 
           <div>
             <h2 className="font-bold text-gray-900">
