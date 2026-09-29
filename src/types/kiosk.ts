@@ -141,12 +141,6 @@ export interface AddKioskPrinterPayload {
   serial_number: string;
 }
 
-// NOTE: spec has no update-printer endpoint — only create (§3.6), list, and delete.
-
-// ==========================================
-// KIOSK DETAILS — GET /sudo-admin/kiosks/{kioskId}  (§3.2)
-// ==========================================
-
 export interface KioskDetails {
   id: string;
   name: string;
@@ -168,16 +162,6 @@ export interface KioskDetails {
   pricing: KioskPricing[];
   printers: KioskPrinter[];
 }
-
-// ==========================================
-// PAIRING — machine-facing flow (§4)
-// ==========================================
-
-
-// ==========================================
-// ⏳ PLACEHOLDER — admin-facing pairing endpoints not yet in the confirmed
-// spec. Swap these shapes/paths once backend confirms the real contract.
-// ==========================================
 
 export interface KioskPairingStatusResponse {
   kiosk_id: string;

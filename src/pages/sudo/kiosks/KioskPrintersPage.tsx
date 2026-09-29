@@ -166,22 +166,15 @@ export default function KioskPrintersPage() {
     try {
       setIsSubmitting(true);
 
-      const newPrinter = await addKioskPrinter(accessToken, kioskId, {
+      await addKioskPrinter(accessToken, kioskId, {
         manufacturer: formData.manufacturer.trim(),
         model: formData.model.trim(),
         serial_number: formData.serial_number.trim(),
       });
 
-      setPrinters((previous) => {
-        // newPrinter becomes the default automatically — reflect that
-        // by clearing is_default on the rest of the local list
-        const updated = previous.map((printer) => ({
-          ...printer,
-          is_default: false,
-        }));
-
-        return [...updated, newPrinter];
-      });
+      // Reload from the backend so the UI reflects the server-decided
+      // default printer and all returned printer fields exactly.
+      await loadPrinters();
 
       toast.success("Printer added successfully");
 
@@ -219,9 +212,9 @@ export default function KioskPrintersPage() {
 
       await removeKioskPrinter(accessToken, kioskId, printerId);
 
-      setPrinters((previous) =>
-        previous.filter((printer) => printer.id !== printerId),
-      );
+      // Reload because removing the default printer may cause the backend
+      // to choose/update another default printer.
+      await loadPrinters();
 
       toast.success("Printer removed successfully");
     } catch (error) {
@@ -259,7 +252,7 @@ export default function KioskPrintersPage() {
           <button
             type="button"
             onClick={() => navigate(`/sudo/kiosks/${kioskId}`)}
-            className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-brand-purple"
+            className="mt-1 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-brand-purple"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -282,7 +275,7 @@ export default function KioskPrintersPage() {
         <button
           type="button"
           onClick={handleOpenCreate}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Add Printer
@@ -310,7 +303,7 @@ export default function KioskPrintersPage() {
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-3 text-sm font-semibold text-white"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white"
             >
               <Plus className="h-4 w-4" />
               Add Printer
@@ -363,7 +356,7 @@ export default function KioskPrintersPage() {
                     type="button"
                     onClick={() => void handleRemove(printer.id)}
                     disabled={removingId === printer.id}
-                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {removingId === printer.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -399,7 +392,7 @@ export default function KioskPrintersPage() {
               <button
                 type="button"
                 onClick={handleCloseForm}
-                className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-gray-100"
+                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -421,7 +414,7 @@ export default function KioskPrintersPage() {
                       handleChange("manufacturer", event.target.value)
                     }
                     placeholder="HP"
-                    className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+                    className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
                   />
                 </div>
 
@@ -437,7 +430,7 @@ export default function KioskPrintersPage() {
                       handleChange("model", event.target.value)
                     }
                     placeholder="LaserJet Pro M404dn"
-                    className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+                    className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
                   />
                 </div>
 
@@ -453,7 +446,7 @@ export default function KioskPrintersPage() {
                       handleChange("serial_number", event.target.value)
                     }
                     placeholder="SN-00123456"
-                    className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+                    className="h-12 w-full rounded-full border border-gray-200 px-5 text-sm outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
                   />
                 </div>
 
@@ -470,7 +463,7 @@ export default function KioskPrintersPage() {
                   type="button"
                   onClick={handleCloseForm}
                   disabled={isSubmitting}
-                  className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700"
+                  className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -478,7 +471,7 @@ export default function KioskPrintersPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand-purple px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

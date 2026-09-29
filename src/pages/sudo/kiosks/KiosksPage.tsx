@@ -145,12 +145,7 @@ export default function KiosksPage() {
     });
   }, [kiosks, search, typeFilter, pairedFilter]);
 
-  // ==========================================
-  // DELETE KIOSK
-  // ==========================================
-  // NOTE: DELETE /sudo-admin/kiosks/{kioskId} isn't built on the
-  // backend yet — this will 404 until it ships.
-
+  
   const handleDelete = async (kiosk: Kiosk) => {
     if (!accessToken) {
       toast.error("Authentication token not found");
