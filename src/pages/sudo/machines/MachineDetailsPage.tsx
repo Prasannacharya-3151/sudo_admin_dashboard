@@ -3,7 +3,6 @@ import {
   Building2,
   Calendar,
   CircleDollarSign,
-  Cpu,
   CreditCard,
   Loader2,
   MapPin,
@@ -11,6 +10,7 @@ import {
   Trash2,
   Wallet,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Users as UsersIcon,
@@ -29,10 +29,7 @@ import {
   type FormEvent,
 } from "react";
 
-import {
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { toast } from "sonner";
 
@@ -42,22 +39,12 @@ import {
   getMachines,
 } from "../../../api/machineApi";
 
-import {
-  deleteUser,
-  getUsers,
-  signupUser,
-} from "../../../api/userApi";
+import { deleteUser, getUsers, signupUser } from "../../../api/userApi";
 
 import { getMachineBalanceValue } from "../../../utils/machineBalance";
 
-import type {
-  MachineBalance,
-  RechargeMachine,
-} from "../../../types/machine";
-import type {
-  SignupUserPayload,
-  WardenUser,
-} from "../../../types/user";
+import type { MachineBalance, RechargeMachine } from "../../../types/machine";
+import type { SignupUserPayload, WardenUser } from "../../../types/user";
 
 const getStatusConfig = (status?: string) => {
   const normalizedStatus = status?.toLowerCase();
@@ -66,36 +53,31 @@ const getStatusConfig = (status?: string) => {
     case "active":
       return {
         label: "Active",
-        className:
-          "bg-green-50 text-green-700 border-green-200",
+        className: "bg-green-50 text-green-700 border-green-200",
       };
 
     case "inactive":
       return {
         label: "Inactive",
-        className:
-          "bg-gray-100 text-gray-700 border-gray-200",
+        className: "bg-gray-100 text-gray-700 border-gray-200",
       };
 
     case "maintenance":
       return {
         label: "Maintenance",
-        className:
-          "bg-yellow-50 text-yellow-700 border-yellow-200",
+        className: "bg-yellow-50 text-yellow-700 border-yellow-200",
       };
 
     case "blocked":
       return {
         label: "Blocked",
-        className:
-          "bg-red-50 text-red-700 border-red-200",
+        className: "bg-red-50 text-red-700 border-red-200",
       };
 
     default:
       return {
         label: status || "Unknown",
-        className:
-          "bg-gray-100 text-gray-600 border-gray-200",
+        className: "bg-gray-100 text-gray-600 border-gray-200",
       };
   }
 };
@@ -124,19 +106,15 @@ const formatCurrency = (amount?: number) => {
 export default function MachineDetailsPage() {
   const navigate = useNavigate();
 
-  const { machineId } = useParams<{
-    machineId: string;
-  }>();
+  const { machineId } = useParams<{ machineId: string }>();
 
   // ==========================================
   // MACHINE STATE
   // ==========================================
 
-  const [machine, setMachine] =
-    useState<RechargeMachine | null>(null);
+  const [machine, setMachine] = useState<RechargeMachine | null>(null);
 
-  const [balanceData, setBalanceData] =
-    useState<MachineBalance | null>(null);
+  const [balanceData, setBalanceData] = useState<MachineBalance | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -145,39 +123,47 @@ export default function MachineDetailsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ==========================================
+  // DELETE MACHINE MODAL (replaces window.confirm)
+  // ==========================================
+
+  const [isDeleteMachineModalOpen, setIsDeleteMachineModalOpen] =
+    useState(false);
+
+  // ==========================================
   // WARDENS FOR THIS MACHINE'S INSTITUTION
   // ==========================================
 
   const [users, setUsers] = useState<WardenUser[]>([]);
 
-  const [isLoadingUsers, setIsLoadingUsers] =
-    useState(true);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
-  const [deletingUserId, setDeletingUserId] =
-    useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+  // ==========================================
+  // DELETE WARDEN MODAL (replaces window.confirm)
+  // ==========================================
+
+  const [userPendingDelete, setUserPendingDelete] =
+    useState<WardenUser | null>(null);
 
   // ==========================================
   // ADD WARDEN MODAL
   // ==========================================
 
-  const [isWardenModalOpen, setIsWardenModalOpen] =
-    useState(false);
+  const [isWardenModalOpen, setIsWardenModalOpen] = useState(false);
 
   const [wardenFormData, setWardenFormData] = useState({
     email: "",
     password: "",
   });
 
-  const [isCreatingWarden, setIsCreatingWarden] =
-    useState(false);
+  const [isCreatingWarden, setIsCreatingWarden] = useState(false);
 
   // ==========================================
   // LOAD MACHINE
   // ==========================================
 
-  const loadMachine = async (
-    showRefreshLoader = false,
-  ) => {
+  const loadMachine = async (showRefreshLoader = false) => {
     if (!machineId) {
       toast.error("Machine ID is missing");
 
@@ -196,9 +182,7 @@ export default function MachineDetailsPage() {
       const machines = await getMachines();
 
       const selectedMachine = machines.find(
-        (item) =>
-          item.id === machineId ||
-          item.ble_id === machineId,
+        (item) => item.id === machineId || item.ble_id === machineId,
       );
 
       if (!selectedMachine) {
@@ -208,24 +192,16 @@ export default function MachineDetailsPage() {
       setMachine(selectedMachine);
 
       try {
-        const balance = await getMachineBalance(
-          selectedMachine.id,
-        );
+        const balance = await getMachineBalance(selectedMachine.id);
 
         setBalanceData(balance);
       } catch (balanceError) {
-        console.error(
-          "Balance fetch error:",
-          balanceError,
-        );
+        console.error("Balance fetch error:", balanceError);
 
         setBalanceData(null);
       }
     } catch (error) {
-      console.error(
-        "Machine details error:",
-        error,
-      );
+      console.error("Machine details error:", error);
 
       const message =
         error instanceof Error
@@ -260,9 +236,7 @@ export default function MachineDetailsPage() {
       console.error("Failed to fetch wardens:", error);
 
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load wardens";
+        error instanceof Error ? error.message : "Failed to load wardens";
 
       toast.error(message);
     } finally {
@@ -282,25 +256,27 @@ export default function MachineDetailsPage() {
     if (!machine) return [];
 
     return users.filter(
-      (user) =>
-        user.institution_id === machine.institution_id,
+      (user) => user.institution_id === machine.institution_id,
     );
   }, [users, machine]);
 
   // ==========================================
-  // DELETE MACHINE
+  // DELETE MACHINE — open modal instead of window.confirm
   // ==========================================
 
+  const handleRequestDelete = () => {
+    if (!machine) return;
+    setIsDeleteMachineModalOpen(true);
+  };
+
+  const handleCancelDeleteMachine = () => {
+    if (isDeleting) return;
+    setIsDeleteMachineModalOpen(false);
+  };
+
+  // same delete logic as before, just triggered from the modal's confirm button
   const handleDelete = async () => {
     if (!machine) return;
-
-    const confirmed = window.confirm(
-      `Are you sure you want to delete this machine?\n\nBLE ID: ${
-        machine.ble_id || "N/A"
-      }\n\nThis action cannot be undone.`,
-    );
-
-    if (!confirmed) return;
 
     try {
       setIsDeleting(true);
@@ -321,24 +297,35 @@ export default function MachineDetailsPage() {
       toast.error(message);
     } finally {
       setIsDeleting(false);
+      setIsDeleteMachineModalOpen(false);
     }
   };
 
   // ==========================================
-  // DELETE WARDEN
+  // DELETE WARDEN — open modal instead of window.confirm
   // ==========================================
 
-  const handleDeleteUser = async (user: WardenUser) => {
+  const handleRequestDeleteUser = (user: WardenUser) => {
     if (!user.id) {
       toast.error("User ID is missing");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${user.email}"?`,
-    );
+    setUserPendingDelete(user);
+  };
 
-    if (!confirmed) return;
+  const handleCancelDeleteUser = () => {
+    setUserPendingDelete(null);
+  };
+
+  // same delete logic as before, just reading the user from state
+  const handleDeleteUser = async () => {
+    const user = userPendingDelete;
+
+    if (!user || !user.id) {
+      toast.error("User ID is missing");
+      return;
+    }
 
     try {
       setDeletingUserId(user.id);
@@ -346,9 +333,7 @@ export default function MachineDetailsPage() {
       await deleteUser(user.id);
 
       setUsers((previousUsers) =>
-        previousUsers.filter(
-          (item) => item.id !== user.id,
-        ),
+        previousUsers.filter((item) => item.id !== user.id),
       );
 
       toast.success("Warden deleted successfully");
@@ -363,6 +348,7 @@ export default function MachineDetailsPage() {
       toast.error(message);
     } finally {
       setDeletingUserId(null);
+      setUserPendingDelete(null);
     }
   };
 
@@ -380,9 +366,7 @@ export default function MachineDetailsPage() {
     setIsWardenModalOpen(false);
   };
 
-  const handleWardenChange = (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleWardenChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
 
     setWardenFormData((previous) => ({
@@ -395,9 +379,7 @@ export default function MachineDetailsPage() {
   // CREATE WARDEN (pre-scoped to this machine's institution)
   // ==========================================
 
-  const handleCreateWarden = async (
-    event: FormEvent<HTMLFormElement>,
-  ) => {
+  const handleCreateWarden = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!machine) return;
@@ -420,9 +402,7 @@ export default function MachineDetailsPage() {
     }
 
     if (wardenFormData.password.trim().length < 6) {
-      toast.error(
-        "Password must be at least 6 characters",
-      );
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
@@ -484,8 +464,8 @@ export default function MachineDetailsPage() {
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            The machine you are looking for could not be
-            found or may have been removed.
+            The machine you are looking for could not be found or may have
+            been removed.
           </p>
 
           <button
@@ -503,10 +483,7 @@ export default function MachineDetailsPage() {
 
   const statusConfig = getStatusConfig(machine.status);
 
-  const currentBalance = getMachineBalanceValue(
-    machine,
-    balanceData,
-  );
+  const currentBalance = getMachineBalanceValue(machine, balanceData);
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 pb-10">
@@ -550,9 +527,7 @@ export default function MachineDetailsPage() {
             className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCcw
-              className={`h-4 w-4 ${
-                isRefreshing ? "animate-spin" : ""
-              }`}
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
             />
             Refresh
           </button>
@@ -560,9 +535,7 @@ export default function MachineDetailsPage() {
           <button
             type="button"
             onClick={() =>
-              navigate(
-                `/sudo/machines/${machine.id}/recharge`,
-              )
+              navigate(`/sudo/machines/${machine.id}/recharge`)
             }
             className="inline-flex items-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
@@ -572,7 +545,7 @@ export default function MachineDetailsPage() {
 
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={handleRequestDelete}
             disabled={isDeleting}
             className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -616,8 +589,6 @@ export default function MachineDetailsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-           
-
             <div>
               <h2 className="font-bold text-gray-900">
                 Machine Information
@@ -630,14 +601,11 @@ export default function MachineDetailsPage() {
           </div>
 
           <div className="space-y-5">
-          
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-gray-400" />
 
-                <span className="text-sm text-gray-500">
-                  BLE ID
-                </span>
+                <span className="text-sm text-gray-500">BLE ID</span>
               </div>
 
               <span className="max-w-[60%] break-all text-right text-sm font-semibold text-gray-900">
@@ -649,14 +617,11 @@ export default function MachineDetailsPage() {
               <div className="flex items-center gap-3">
                 <MapPin className="h-4 w-4 text-gray-400" />
 
-                <span className="text-sm text-gray-500">
-                  Machine Block
-                </span>
+                <span className="text-sm text-gray-500">Machine Block</span>
               </div>
 
               <span className="max-w-[60%] text-right text-sm font-semibold text-gray-900">
-                {machine.recharge_machine_block ||
-                  "Not available"}
+                {machine.recharge_machine_block || "Not available"}
               </span>
             </div>
 
@@ -664,9 +629,7 @@ export default function MachineDetailsPage() {
               <div className="flex items-center gap-3">
                 <Clock className="h-4 w-4 text-gray-400" />
 
-                <span className="text-sm text-gray-500">
-                  Status
-                </span>
+                <span className="text-sm text-gray-500">Status</span>
               </div>
 
               <span
@@ -680,8 +643,6 @@ export default function MachineDetailsPage() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            
-
             <div>
               <h2 className="font-bold text-gray-900">
                 Institution Information
@@ -694,8 +655,6 @@ export default function MachineDetailsPage() {
           </div>
 
           <div className="space-y-5">
-            
-
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
               <div className="flex items-center gap-3">
                 <Building2 className="h-4 w-4 text-gray-400" />
@@ -706,8 +665,7 @@ export default function MachineDetailsPage() {
               </div>
 
               <span className="max-w-[60%] text-right text-sm font-semibold text-gray-900">
-                {machine.institution_name ||
-                  "Not available"}
+                {machine.institution_name || "Not available"}
               </span>
             </div>
 
@@ -729,9 +687,7 @@ export default function MachineDetailsPage() {
               <div className="flex items-center gap-3">
                 <Calendar className="h-4 w-4 text-gray-400" />
 
-                <span className="text-sm text-gray-500">
-                  Created At
-                </span>
+                <span className="text-sm text-gray-500">Created At</span>
               </div>
 
               <span className="max-w-[60%] text-right text-sm font-semibold text-gray-900">
@@ -754,14 +710,11 @@ export default function MachineDetailsPage() {
             </div>
 
             <div>
-              <h2 className="font-bold text-gray-900">
-                Wardens
-              </h2>
+              <h2 className="font-bold text-gray-900">Wardens</h2>
 
               <p className="text-sm text-gray-500">
                 Warden accounts for{" "}
-                {machine.institution_name ||
-                  "this institution"}
+                {machine.institution_name || "this institution"}
               </p>
             </div>
           </div>
@@ -791,8 +744,8 @@ export default function MachineDetailsPage() {
             </h3>
 
             <p className="mt-1 max-w-sm text-xs text-gray-500">
-              Create a warden account for this
-              institution to manage this machine.
+              Create a warden account for this institution to manage this
+              machine.
             </p>
           </div>
         ) : (
@@ -811,17 +764,13 @@ export default function MachineDetailsPage() {
                     <p className="truncate text-sm font-semibold text-gray-900">
                       {user.email}
                     </p>
-
-                   
                   </div>
                 </div>
 
                 <button
                   type="button"
                   disabled={deletingUserId === user.id}
-                  onClick={() =>
-                    void handleDeleteUser(user)
-                  }
+                  onClick={() => handleRequestDeleteUser(user)}
                   title="Delete Warden"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -839,12 +788,8 @@ export default function MachineDetailsPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-         
-
           <div>
-            <h2 className="font-bold text-gray-900">
-              Financial Overview
-            </h2>
+            <h2 className="font-bold text-gray-900">Financial Overview</h2>
 
             <p className="text-sm text-gray-500">
               Machine balance information
@@ -869,10 +814,7 @@ export default function MachineDetailsPage() {
             </p>
 
             <p className="mt-2 text-sm font-semibold text-gray-900">
-              {formatDate(
-                balanceData?.updated_at ||
-                  machine.updated_at,
-              )}
+              {formatDate(balanceData?.updated_at || machine.updated_at)}
             </p>
           </div>
         </div>
@@ -886,17 +828,14 @@ export default function MachineDetailsPage() {
             </h3>
 
             <p className="mt-1 text-sm text-gray-600">
-              Add balance to this recharge machine for
-              RFID operations.
+              Add balance to this recharge machine for RFID operations.
             </p>
           </div>
 
           <button
             type="button"
             onClick={() =>
-              navigate(
-                `/sudo/machines/${machine.id}/recharge`,
-              )
+              navigate(`/sudo/machines/${machine.id}/recharge`)
             }
             className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           >
@@ -948,9 +887,7 @@ export default function MachineDetailsPage() {
                 <Building2 className="h-5 w-5 text-gray-400" />
 
                 <div>
-                  <p className="text-xs text-gray-500">
-                    Institution
-                  </p>
+                  <p className="text-xs text-gray-500">Institution</p>
 
                   <p className="text-sm font-semibold text-gray-900">
                     {machine.institution_name}
@@ -964,9 +901,7 @@ export default function MachineDetailsPage() {
                   className="mb-2 block text-sm font-semibold text-gray-700"
                 >
                   Email
-                  <span className="ml-1 text-red-500">
-                    *
-                  </span>
+                  <span className="ml-1 text-red-500">*</span>
                 </label>
 
                 <div className="relative">
@@ -991,9 +926,7 @@ export default function MachineDetailsPage() {
                   className="mb-2 block text-sm font-semibold text-gray-700"
                 >
                   Password
-                  <span className="ml-1 text-red-500">
-                    *
-                  </span>
+                  <span className="ml-1 text-red-500">*</span>
                 </label>
 
                 <div className="relative">
@@ -1045,6 +978,140 @@ export default function MachineDetailsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================
+          DELETE MACHINE MODAL — replaces window.confirm
+      ====================================== */}
+
+      {isDeleteMachineModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCancelDeleteMachine}
+                disabled={isDeleting}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <h2 className="mt-4 text-lg font-bold text-gray-900">
+              Delete Machine
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Are you sure you want to delete this machine? BLE ID:{" "}
+              <span className="font-semibold text-gray-700">
+                {machine.ble_id || "N/A"}
+              </span>
+              . This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleCancelDeleteMachine}
+                disabled={isDeleting}
+                className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={isDeleting}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete Machine
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================
+          DELETE WARDEN MODAL — replaces window.confirm
+      ====================================== */}
+
+      {userPendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCancelDeleteUser}
+                disabled={deletingUserId === userPendingDelete.id}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <h2 className="mt-4 text-lg font-bold text-gray-900">
+              Delete Warden
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-gray-700">
+                "{userPendingDelete.email}"
+              </span>
+              ? This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleCancelDeleteUser}
+                disabled={deletingUserId === userPendingDelete.id}
+                className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleDeleteUser()}
+                disabled={deletingUserId === userPendingDelete.id}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingUserId === userPendingDelete.id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete Warden
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

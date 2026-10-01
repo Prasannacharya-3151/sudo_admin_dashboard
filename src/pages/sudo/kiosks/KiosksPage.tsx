@@ -12,6 +12,7 @@ import {
   Loader2,
   MapPin,
   CircleAlert,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,10 +30,6 @@ const typeOptions: { label: string; value: "all" | KioskType }[] = [
   { label: "Institution", value: "institution" },
   { label: "Public", value: "public" },
 ];
-
-// ==========================================
-// PAIRED FILTER OPTIONS
-// ==========================================
 
 const pairedOptions: { label: string; value: "all" | "paired" | "unpaired" }[] = [
   { label: "All Pairing", value: "all" },
@@ -53,6 +50,79 @@ const formatDate = (date?: string | null) => {
     year: "numeric",
   }).format(new Date(date));
 };
+
+// ==========================================
+// DELETE CONFIRM DIALOG
+// ==========================================
+
+interface DeleteConfirmDialogProps {
+  kiosk: Kiosk;
+  isDeleting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function DeleteConfirmDialog({
+  kiosk,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: DeleteConfirmDialogProps) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">
+              Delete kiosk?
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              This will permanently remove{" "}
+              <span className="font-semibold text-gray-700">
+                "{kiosk.name}"
+              </span>
+              . This action cannot be undone.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onCancel}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-7 flex justify-end gap-3">
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onCancel}
+            className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            className="flex items-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+          >
+            {isDeleting && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ==========================================
 // COMPONENT
@@ -84,12 +154,8 @@ export default function KiosksPage() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // ==========================================
-  // FETCH KIOSKS
-  // ==========================================
-  // NOTE: GET /sudo-admin/kiosks isn't built yet. getKiosks() falls
-  // back to the public GET /kiosk/ endpoint (no auth needed) and
-  // filters client-side, so this call doesn't need accessToken.
+  const [pendingDeleteKiosk, setPendingDeleteKiosk] =
+    useState<Kiosk | null>(null);
 
   const fetchKiosks = useCallback(async () => {
     try {
@@ -114,10 +180,6 @@ export default function KiosksPage() {
   useEffect(() => {
     void fetchKiosks();
   }, [fetchKiosks]);
-
-  // ==========================================
-  // FILTERED KIOSKS
-  // ==========================================
 
   const filteredKiosks = useMemo(() => {
     return kiosks.filter((kiosk) => {
@@ -145,29 +207,41 @@ export default function KiosksPage() {
     });
   }, [kiosks, search, typeFilter, pairedFilter]);
 
-  
-  const handleDelete = async (kiosk: Kiosk) => {
+  // ==========================================
+  // OPEN DELETE CONFIRMATION
+  // ==========================================
+
+  const handleRequestDelete = (kiosk: Kiosk) => {
+    setOpenMenuId(null);
+    setPendingDeleteKiosk(kiosk);
+  };
+
+  // ==========================================
+  // CONFIRM DELETE
+  // ==========================================
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteKiosk) return;
+
     if (!accessToken) {
       toast.error("Authentication token not found");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${kiosk.name}"?`,
-    );
-
-    if (!confirmed) return;
-
     try {
-      setDeletingId(kiosk.id);
+      setDeletingId(pendingDeleteKiosk.id);
 
-      await deleteKiosk(accessToken, kiosk.id);
+      await deleteKiosk(accessToken, pendingDeleteKiosk.id);
 
       setKiosks((previous) =>
-        previous.filter((item) => item.id !== kiosk.id),
+        previous.filter(
+          (item) => item.id !== pendingDeleteKiosk.id,
+        ),
       );
 
       toast.success("Kiosk deleted successfully");
+
+      setPendingDeleteKiosk(null);
     } catch (error) {
       console.error("Failed to delete kiosk:", error);
 
@@ -176,13 +250,8 @@ export default function KiosksPage() {
       );
     } finally {
       setDeletingId(null);
-      setOpenMenuId(null);
     }
   };
-
-  // ==========================================
-  // LOADING
-  // ==========================================
 
   if (isLoading) {
     return (
@@ -524,7 +593,7 @@ export default function KiosksPage() {
                             <button
                               type="button"
                               disabled={deletingId === kiosk.id}
-                              onClick={() => void handleDelete(kiosk)}
+                              onClick={() => handleRequestDelete(kiosk)}
                               className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {deletingId === kiosk.id ? (
@@ -560,6 +629,19 @@ export default function KiosksPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* ======================================
+          DELETE CONFIRMATION MODAL
+      ====================================== */}
+
+      {pendingDeleteKiosk && (
+        <DeleteConfirmDialog
+          kiosk={pendingDeleteKiosk}
+          isDeleting={deletingId === pendingDeleteKiosk.id}
+          onConfirm={() => void handleConfirmDelete()}
+          onCancel={() => setPendingDeleteKiosk(null)}
+        />
       )}
     </div>
   );

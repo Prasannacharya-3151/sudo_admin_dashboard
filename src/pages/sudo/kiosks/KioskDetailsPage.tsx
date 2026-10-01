@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowLeft,
   Building2,
   CreditCard,
@@ -14,6 +15,7 @@ import {
   Trash2,
   Unplug,
   Wifi,
+  X,
 } from "lucide-react";
 
 import { useCallback, useEffect, useState } from "react";
@@ -102,8 +104,97 @@ const primaryBtn =
   "inline-flex h-9 items-center justify-center gap-2 rounded-full bg-brand-purple px-5 text-xs font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 const outlineBtn =
   "inline-flex h-9 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60";
+const dangerBtn =
+  "inline-flex h-9 items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60";
 const cardClass = "rounded-3xl border border-slate-200 bg-white";
 const eyebrowClass = "text-[11px] font-medium uppercase tracking-wide text-slate-400";
+
+// ==========================================
+// CONFIRM DIALOG (replaces window.confirm)
+// ==========================================
+
+type ConfirmDialogState = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  variant: "danger" | "default";
+  onConfirm: () => void | Promise<void>;
+} | null;
+
+interface ConfirmDialogProps {
+  state: ConfirmDialogState;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function ConfirmDialog({ state, isSubmitting, onCancel, onConfirm }: ConfirmDialogProps) {
+  useEffect(() => {
+    if (!state) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSubmitting) onCancel();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [state, isSubmitting, onCancel]);
+
+  if (!state) return null;
+
+  const isDanger = state.variant === "danger";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      {/* Backdrop */}
+      <button
+        type="button"
+        aria-label="Cancel"
+        onClick={() => !isSubmitting && onCancel()}
+        className="absolute inset-0 cursor-default bg-slate-900/50 backdrop-blur-sm"
+      />
+
+      {/* Dialog */}
+      <div className="relative z-10 w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+        <button
+          type="button"
+          onClick={() => !isSubmitting && onCancel()}
+          disabled={isSubmitting}
+          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-full ${
+            isDanger ? "bg-red-50 text-red-600" : "bg-purple-50 text-brand-purple"
+          }`}
+        >
+          <AlertTriangle className="h-5 w-5" />
+        </div>
+
+        <h2 className="mt-4 text-sm font-bold text-slate-900">{state.title}</h2>
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{state.description}</p>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} disabled={isSubmitting} className={outlineBtn}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+            className={isDanger ? dangerBtn : primaryBtn}
+          >
+            {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {state.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ==========================================
 // COMPONENT
@@ -152,6 +243,27 @@ export default function KioskDetailsPage() {
 
   // delete
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // confirm dialog (replaces window.confirm everywhere on this page)
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null);
+  const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
+
+  const closeConfirmDialog = () => {
+    if (isConfirmSubmitting) return;
+    setConfirmDialog(null);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmDialog) return;
+
+    try {
+      setIsConfirmSubmitting(true);
+      await confirmDialog.onConfirm();
+      setConfirmDialog(null);
+    } finally {
+      setIsConfirmSubmitting(false);
+    }
+  };
 
   // ==========================================
   // LOAD
@@ -323,64 +435,85 @@ export default function KioskDetailsPage() {
     }
   };
 
-  const handleRemovePrinter = async (printerId: string) => {
+  const handleRemovePrinter = (printerId: string) => {
     if (!kioskId || !accessToken) return;
-    if (!window.confirm("Remove this printer?")) return;
 
-    try {
-      await removeKioskPrinter(accessToken, kioskId, printerId);
-      setKiosk((previous) =>
-        previous
-          ? {
-              ...previous,
-              printers: (previous.printers ?? []).map((p) =>
-                p.id === printerId ? { ...p, removed_at: new Date().toISOString() } : p,
-              ),
-            }
-          : previous,
-      );
-      toast.success("Printer removed");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to remove printer");
-    }
+    setConfirmDialog({
+      title: "Remove printer",
+      description: "This printer will be removed from the kiosk. You can register a new one afterwards.",
+      confirmLabel: "Remove Printer",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await removeKioskPrinter(accessToken, kioskId, printerId);
+          setKiosk((previous) =>
+            previous
+              ? {
+                  ...previous,
+                  printers: (previous.printers ?? []).map((p) =>
+                    p.id === printerId ? { ...p, removed_at: new Date().toISOString() } : p,
+                  ),
+                }
+              : previous,
+          );
+          toast.success("Printer removed");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to remove printer");
+        }
+      },
+    });
   };
 
   // ==========================================
   // PAIRING
   // ==========================================
 
-  const handleUnpair = async () => {
+  const handleUnpair = () => {
     if (!kioskId || !accessToken) return;
-    if (!window.confirm("Unpair this device? The machine will need the new code to reconnect.")) return;
 
-    try {
-      setIsUnpairing(true);
-      const result = await unpairKiosk(accessToken, kioskId);
-      setKiosk((previous) =>
-        previous ? { ...previous, pairing_code: result.pairing_code, device_id: null, paired_at: null } : previous,
-      );
-      toast.success("Device unpaired — new pairing code issued");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to unpair device");
-    } finally {
-      setIsUnpairing(false);
-    }
+    setConfirmDialog({
+      title: "Unpair device",
+      description: "The machine will need the new code to reconnect after this.",
+      confirmLabel: "Unpair Device",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          setIsUnpairing(true);
+          const result = await unpairKiosk(accessToken, kioskId);
+          setKiosk((previous) =>
+            previous ? { ...previous, pairing_code: result.pairing_code, device_id: null, paired_at: null } : previous,
+          );
+          toast.success("Device unpaired — new pairing code issued");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to unpair device");
+        } finally {
+          setIsUnpairing(false);
+        }
+      },
+    });
   };
 
-  const handleDeleteKiosk = async () => {
+  const handleDeleteKiosk = () => {
     if (!kioskId || !kiosk || !accessToken) return;
-    if (!window.confirm(`Delete "${kiosk.name}"? This action cannot be undone.`)) return;
 
-    try {
-      setIsDeleting(true);
-      await deleteKiosk(accessToken, kioskId);
-      toast.success("Kiosk deleted successfully");
-      navigate("/sudo/kiosks");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Delete isn't available yet — backend route pending");
-    } finally {
-      setIsDeleting(false);
-    }
+    setConfirmDialog({
+      title: "Delete kiosk",
+      description: `Delete "${kiosk.name}"? This action cannot be undone.`,
+      confirmLabel: "Delete Kiosk",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          setIsDeleting(true);
+          await deleteKiosk(accessToken, kioskId);
+          toast.success("Kiosk deleted successfully");
+          navigate("/sudo/kiosks");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Delete isn't available yet — backend route pending");
+        } finally {
+          setIsDeleting(false);
+        }
+      },
+    });
   };
 
   if (isLoading) {
@@ -535,7 +668,7 @@ export default function KioskDetailsPage() {
                 type="button"
                 onClick={handleDeleteKiosk}
                 disabled={isDeleting}
-                className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`${dangerBtn} shrink-0`}
               >
                 {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                 Delete Kiosk
@@ -934,6 +1067,14 @@ export default function KioskDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* CONFIRM DIALOG — replaces window.confirm() for delete / unpair / remove printer */}
+      <ConfirmDialog
+        state={confirmDialog}
+        isSubmitting={isConfirmSubmitting}
+        onCancel={closeConfirmDialog}
+        onConfirm={handleConfirmAction}
+      />
     </div>
   );
 }

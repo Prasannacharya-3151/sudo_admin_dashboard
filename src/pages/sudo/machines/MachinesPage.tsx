@@ -5,105 +5,82 @@ import {
   RefreshCw,
   Eye,
   Trash2,
-  Building2,
   Wallet,
   Loader2,
   AlertCircle,
   Bluetooth,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  useNavigate,
-} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { toast } from "sonner";
 
-import {
-  deleteMachine,
-  getMachines,
-} from "../../../api/machineApi";
+import { deleteMachine, getMachines } from "../../../api/machineApi";
 
 import { getMachineBalanceValue } from "../../../utils/machineBalance";
 
-import type {
-  RechargeMachine,
-} from "../../../types/machine";
+import type { RechargeMachine } from "../../../types/machine";
 
 export default function MachinesPage() {
   const navigate = useNavigate();
 
-  const [machines, setMachines] =
-    useState<RechargeMachine[]>([]);
+  const [machines, setMachines] = useState<RechargeMachine[]>([]);
 
-  const [searchQuery, setSearchQuery] =
-    useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [isRefreshing, setIsRefreshing] =
-    useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [deletingId, setDeletingId] =
-    useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchMachines = useCallback(
-    async (showRefreshLoader = false) => {
-      try {
-        setError(null);
+  // ==========================================
+  // DELETE CONFIRMATION MODAL STATE
+  // ==========================================
 
-        if (showRefreshLoader) {
-          setIsRefreshing(true);
-        } else {
-          setIsLoading(true);
-        }
+  const [machinePendingDelete, setMachinePendingDelete] =
+    useState<RechargeMachine | null>(null);
 
-        const data = await getMachines();
+  const fetchMachines = useCallback(async (showRefreshLoader = false) => {
+    try {
+      setError(null);
 
-        setMachines(
-          Array.isArray(data)
-            ? data
-            : [],
-        );
-      } catch (error) {
-        console.error(
-          "Failed to fetch machines:",
-          error,
-        );
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load machines";
-
-        setError(message);
-
-        toast.error(message);
-      } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+      if (showRefreshLoader) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
       }
-    },
-    [],
-  );
+
+      const data = await getMachines();
+
+      setMachines(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to fetch machines:", error);
+
+      const message =
+        error instanceof Error ? error.message : "Failed to load machines";
+
+      setError(message);
+
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     void fetchMachines();
   }, [fetchMachines]);
 
   const filteredMachines = useMemo(() => {
-    const query =
-      searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
       return machines;
@@ -111,57 +88,42 @@ export default function MachinesPage() {
 
     return machines.filter((machine) => {
       return (
-        machine.institution_name
-          ?.toLowerCase()
-          .includes(query) ||
-
-        machine.institution_id
-          ?.toLowerCase()
-          .includes(query) ||
-
-        machine.recharge_machine_block
-          ?.toLowerCase()
-          .includes(query) ||
-
-        machine.ble_id
-          ?.toLowerCase()
-          .includes(query) ||
-
-        machine.id
-          ?.toLowerCase()
-          .includes(query) ||
-
-        machine.status
-          ?.toLowerCase()
-          .includes(query)
+        machine.institution_name?.toLowerCase().includes(query) ||
+        machine.institution_id?.toLowerCase().includes(query) ||
+        machine.recharge_machine_block?.toLowerCase().includes(query) ||
+        machine.ble_id?.toLowerCase().includes(query) ||
+        machine.id?.toLowerCase().includes(query) ||
+        machine.status?.toLowerCase().includes(query)
       );
     });
-  }, [
-    machines,
-    searchQuery,
-  ]);
+  }, [machines, searchQuery]);
 
-  const handleDeleteMachine = async (
-    machine: RechargeMachine,
-  ) => {
+  // ==========================================
+  // OPEN DELETE MODAL (replaces window.confirm)
+  // ==========================================
+
+  const handleRequestDeleteMachine = (machine: RechargeMachine) => {
     if (!machine.id) {
-      toast.error(
-        "Machine ID is missing",
-      );
-
+      toast.error("Machine ID is missing");
       return;
     }
 
-    const machineName =
-      machine.recharge_machine_block ||
-      machine.ble_id ||
-      "this machine";
+    setMachinePendingDelete(machine);
+  };
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${machineName}"?`,
-    );
+  const handleCancelDelete = () => {
+    setMachinePendingDelete(null);
+  };
 
-    if (!confirmed) {
+  // ==========================================
+  // CONFIRM DELETE — same logic as before, just triggered from the modal
+  // ==========================================
+
+  const handleConfirmDeleteMachine = async () => {
+    const machine = machinePendingDelete;
+
+    if (!machine || !machine.id) {
+      toast.error("Machine ID is missing");
       return;
     }
 
@@ -171,58 +133,37 @@ export default function MachinesPage() {
       await deleteMachine(machine.id);
 
       setMachines((previousMachines) =>
-        previousMachines.filter(
-          (item) =>
-            item.id !== machine.id,
-        ),
+        previousMachines.filter((item) => item.id !== machine.id),
       );
 
-      toast.success(
-        "Machine deleted successfully",
-      );
+      toast.success("Machine deleted successfully");
     } catch (error) {
-      console.error(
-        "Failed to delete machine:",
-        error,
-      );
+      console.error("Failed to delete machine:", error);
 
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to delete machine";
+        error instanceof Error ? error.message : "Failed to delete machine";
 
       toast.error(message);
     } finally {
       setDeletingId(null);
+      setMachinePendingDelete(null);
     }
   };
 
-  const formatCurrency = (
-    amount?: number,
-  ) => {
-    if (
-      amount === undefined ||
-      amount === null
-    ) {
+  const formatCurrency = (amount?: number) => {
+    if (amount === undefined || amount === null) {
       return "—";
     }
 
-    return new Intl.NumberFormat(
-      "en-IN",
-      {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 2,
-      },
-    ).format(amount);
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(amount);
   };
 
-  const getStatusClass = (
-    status?: string,
-  ) => {
-    switch (
-      status?.toLowerCase()
-    ) {
+  const getStatusClass = (status?: string) => {
+    switch (status?.toLowerCase()) {
       case "active":
         return "bg-green-50 text-green-700 ring-green-600/20";
 
@@ -239,6 +180,11 @@ export default function MachinesPage() {
         return "bg-blue-50 text-blue-700 ring-blue-600/20";
     }
   };
+
+  const pendingDeleteName =
+    machinePendingDelete?.recharge_machine_block ||
+    machinePendingDelete?.ble_id ||
+    "this machine";
 
   if (isLoading) {
     return (
@@ -274,18 +220,12 @@ export default function MachinesPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() =>
-              void fetchMachines(true)
-            }
+            onClick={() => void fetchMachines(true)}
             disabled={isRefreshing}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw
-              className={`h-4 w-4 ${
-                isRefreshing
-                  ? "animate-spin"
-                  : ""
-              }`}
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
             />
 
             Refresh
@@ -293,11 +233,7 @@ export default function MachinesPage() {
 
           <button
             type="button"
-            onClick={() =>
-              navigate(
-                "/sudo/machines/create",
-              )
-            }
+            onClick={() => navigate("/sudo/machines/create")}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-purple px-5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
@@ -336,10 +272,7 @@ export default function MachinesPage() {
               <p className="mt-2 text-2xl font-bold text-gray-900">
                 {
                   machines.filter(
-                    (machine) =>
-                      machine.status
-                        ?.toLowerCase() ===
-                      "active",
+                    (machine) => machine.status?.toLowerCase() === "active",
                   ).length
                 }
               </p>
@@ -361,14 +294,8 @@ export default function MachinesPage() {
               <p className="mt-2 text-2xl font-bold text-gray-900">
                 {formatCurrency(
                   machines.reduce(
-                    (
-                      total,
-                      machine,
-                    ) =>
-                      total +
-                      getMachineBalanceValue(
-                        machine,
-                      ),
+                    (total, machine) =>
+                      total + getMachineBalanceValue(machine),
                     0,
                   ),
                 )}
@@ -392,17 +319,13 @@ export default function MachinesPage() {
                 Failed to load machines
               </p>
 
-              <p className="text-sm text-red-600">
-                {error}
-              </p>
+              <p className="text-sm text-red-600">{error}</p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() =>
-              void fetchMachines()
-            }
+            onClick={() => void fetchMachines()}
             className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-100"
           >
             Try Again
@@ -413,16 +336,11 @@ export default function MachinesPage() {
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-gray-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">
-              All Machines
-            </h2>
+            <h2 className="text-lg font-bold text-gray-900">All Machines</h2>
 
             <p className="mt-1 text-sm text-gray-500">
               {filteredMachines.length} machine
-              {filteredMachines.length !== 1
-                ? "s"
-                : ""}{" "}
-              found
+              {filteredMachines.length !== 1 ? "s" : ""} found
             </p>
           </div>
 
@@ -432,11 +350,7 @@ export default function MachinesPage() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(event) =>
-                setSearchQuery(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search institution, block or BLE ID..."
               className="h-11 w-full rounded-full border border-gray-200 bg-white pl-11 pr-5 text-sm outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
             />
@@ -450,9 +364,7 @@ export default function MachinesPage() {
             </div>
 
             <h3 className="mt-5 text-lg font-bold text-gray-900">
-              {searchQuery
-                ? "No machines found"
-                : "No RFID machines yet"}
+              {searchQuery ? "No machines found" : "No RFID machines yet"}
             </h3>
 
             <p className="mt-2 max-w-sm text-sm text-gray-500">
@@ -464,11 +376,7 @@ export default function MachinesPage() {
             {!searchQuery && (
               <button
                 type="button"
-                onClick={() =>
-                  navigate(
-                    "/sudo/machines/create",
-                  )
-                }
+                onClick={() => navigate("/sudo/machines/create")}
                 className="mt-5 inline-flex items-center gap-2 rounded-full bg-brand-purple px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
               >
                 <Plus className="h-4 w-4" />
@@ -510,230 +418,250 @@ export default function MachinesPage() {
                 </thead>
 
                 <tbody className="divide-y divide-gray-100">
-                  {filteredMachines.map(
-                    (machine) => {
-                      return (
-                        <tr
-                          key={machine.id}
-                          className="transition hover:bg-gray-50/70"
-                        >
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-3">
-                             
-
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {machine.institution_name ||
-                                    "Not specified"}
-                                </p>
-
-                              </div>
+                  {filteredMachines.map((machine) => {
+                    return (
+                      <tr
+                        key={machine.id}
+                        className="transition hover:bg-gray-50/70"
+                      >
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {machine.institution_name || "Not specified"}
+                              </p>
                             </div>
-                          </td>
+                          </div>
+                        </td>
 
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-2">
-                              <Cpu className="h-4 w-4 text-gray-400" />
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <Cpu className="h-4 w-4 text-gray-400" />
 
-                              <span className="text-sm font-medium text-gray-700">
-                                {machine.recharge_machine_block ||
-                                  "—"}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-2">
-                              <Bluetooth className="h-4 w-4 text-gray-400" />
-
-                              <span className="font-mono text-sm text-gray-600">
-                                {machine.ble_id ||
-                                  "—"}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-2">
-                              <Wallet className="h-4 w-4 text-gray-400" />
-
-                              <span className="font-semibold text-gray-900">
-                                {formatCurrency(
-                                  getMachineBalanceValue(
-                                    machine,
-                                  ),
-                                )}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="px-6 py-5">
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ring-inset ${getStatusClass(
-                                machine.status,
-                              )}`}
-                            >
-                              {machine.status ||
-                                "Unknown"}
+                            <span className="text-sm font-medium text-gray-700">
+                              {machine.recharge_machine_block || "—"}
                             </span>
-                          </td>
+                          </div>
+                        </td>
 
-                          <td className="px-6 py-5">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  navigate(
-                                    `/sudo/machines/${machine.id}`,
-                                  )
-                                }
-                                title="View Machine"
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand-purple hover:bg-brand-purple/5 hover:text-brand-purple"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <Bluetooth className="h-4 w-4 text-gray-400" />
 
-                              <button
-                                type="button"
-                                disabled={
-                                  deletingId ===
-                                  machine.id
-                                }
-                                onClick={() =>
-                                  void handleDeleteMachine(
-                                    machine,
-                                  )
-                                }
-                                title="Delete Machine"
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {deletingId ===
-                                machine.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    },
-                  )}
+                            <span className="font-mono text-sm text-gray-600">
+                              {machine.ble_id || "—"}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <Wallet className="h-4 w-4 text-gray-400" />
+
+                            <span className="font-semibold text-gray-900">
+                              {formatCurrency(
+                                getMachineBalanceValue(machine),
+                              )}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ring-inset ${getStatusClass(
+                              machine.status,
+                            )}`}
+                          >
+                            {machine.status || "Unknown"}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/sudo/machines/${machine.id}`)
+                              }
+                              title="View Machine"
+                              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand-purple hover:bg-brand-purple/5 hover:text-brand-purple"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={deletingId === machine.id}
+                              onClick={() =>
+                                handleRequestDeleteMachine(machine)
+                              }
+                              title="Delete Machine"
+                              className="flex h-9 w-9 items-center justify-center rounded-full border border-red-100 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {deletingId === machine.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             <div className="divide-y divide-gray-100 lg:hidden">
-              {filteredMachines.map(
-                (machine) => (
-                  <div
-                    key={machine.id}
-                    className="p-5"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-purple/10">
-                          <Cpu className="h-5 w-5 text-brand-purple" />
-                        </div>
-
-                        <div className="min-w-0">
-                          <h3 className="truncate font-semibold text-gray-900">
-                            {machine.recharge_machine_block ||
-                              "RFID Machine"}
-                          </h3>
-
-                          <p className="mt-1 truncate text-xs text-gray-500">
-                            {machine.institution_name ||
-                              "Institution not specified"}
-                          </p>
-                        </div>
+              {filteredMachines.map((machine) => (
+                <div key={machine.id} className="p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-purple/10">
+                        <Cpu className="h-5 w-5 text-brand-purple" />
                       </div>
 
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ring-inset ${getStatusClass(
-                          machine.status,
-                        )}`}
-                      >
-                        {machine.status ||
-                          "Unknown"}
-                      </span>
-                    </div>
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold text-gray-900">
+                          {machine.recharge_machine_block || "RFID Machine"}
+                        </h3>
 
-                    <div className="mt-5 grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          BLE ID
+                        <p className="mt-1 truncate text-xs text-gray-500">
+                          {machine.institution_name ||
+                            "Institution not specified"}
                         </p>
-
-                        <div className="mt-1 flex items-center gap-1 text-sm font-medium text-gray-800">
-                          <Bluetooth className="h-3.5 w-3.5 text-gray-400" />
-
-                          {machine.ble_id ||
-                            "—"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          Balance
-                        </p>
-
-                        <div className="mt-1 flex items-center gap-1 text-sm font-semibold text-gray-900">
-                          <Wallet className="h-3.5 w-3.5 text-gray-400" />
-
-                          {formatCurrency(
-                            getMachineBalanceValue(
-                              machine,
-                            ),
-                          )}
-                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-5 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(
-                            `/sudo/machines/${machine.id}`,
-                          )
-                        }
-                        className="flex flex-1 items-center justify-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                      >
-                        <Eye className="h-4 w-4" />
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ring-inset ${getStatusClass(
+                        machine.status,
+                      )}`}
+                    >
+                      {machine.status || "Unknown"}
+                    </span>
+                  </div>
 
-                        View
-                      </button>
+                  <div className="mt-5 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">BLE ID</p>
 
-                      <button
-                        type="button"
-                        disabled={
-                          deletingId ===
-                          machine.id
-                        }
-                        onClick={() =>
-                          void handleDeleteMachine(
-                            machine,
-                          )
-                        }
-                        className="flex items-center justify-center rounded-full border border-red-100 px-4 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {deletingId ===
-                        machine.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </button>
+                      <div className="mt-1 flex items-center gap-1 text-sm font-medium text-gray-800">
+                        <Bluetooth className="h-3.5 w-3.5 text-gray-400" />
+
+                        {machine.ble_id || "—"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500">Balance</p>
+
+                      <div className="mt-1 flex items-center gap-1 text-sm font-semibold text-gray-900">
+                        <Wallet className="h-3.5 w-3.5 text-gray-400" />
+
+                        {formatCurrency(getMachineBalanceValue(machine))}
+                      </div>
                     </div>
                   </div>
-                ),
-              )}
+
+                  <div className="mt-5 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/sudo/machines/${machine.id}`)}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <Eye className="h-4 w-4" />
+
+                      View
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={deletingId === machine.id}
+                      onClick={() => handleRequestDeleteMachine(machine)}
+                      className="flex items-center justify-center rounded-full border border-red-100 px-4 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deletingId === machine.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}
       </div>
+
+      {/* ======================================
+          DELETE CONFIRMATION MODAL — replaces window.confirm
+      ====================================== */}
+
+      {machinePendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                disabled={deletingId === machinePendingDelete.id}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <h2 className="mt-4 text-lg font-bold text-gray-900">
+              Delete Machine
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-gray-700">
+                "{pendingDeleteName}"
+              </span>
+              ? This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                disabled={deletingId === machinePendingDelete.id}
+                className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleConfirmDeleteMachine()}
+                disabled={deletingId === machinePendingDelete.id}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingId === machinePendingDelete.id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete Machine
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
