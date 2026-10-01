@@ -503,15 +503,6 @@ export default function MachineDetailsPage() {
               Machine Details
             </h1>
 
-            <span
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${statusConfig.className}`}
-            >
-              {machine.status === "active" && (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-
-              {statusConfig.label}
-            </span>
           </div>
 
           <p className="mt-2 text-sm text-gray-500">
@@ -560,12 +551,10 @@ export default function MachineDetailsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-brand-purple p-6 shadow-lg sm:p-8">
+      <div className="overflow-hidden rounded-2xl bg-brand-purple p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div>
             <div className="flex items-center gap-2 text-white/70">
-              <Wallet className="h-5 w-5" />
-
               <span className="text-sm font-medium">
                 Current Machine Balance
               </span>

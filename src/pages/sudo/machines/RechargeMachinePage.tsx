@@ -294,9 +294,6 @@ export default function RechargeMachinePage() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="mb-2 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-purple/10">
-                <Wallet className="h-5 w-5 text-brand-purple" />
-              </div>
 
               <h1 className="text-2xl font-bold text-gray-900">
                 Recharge Machine
@@ -314,10 +311,6 @@ export default function RechargeMachinePage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50">
-              <Monitor className="h-5 w-5 text-brand-purple" />
-            </div>
-
             <div>
               <h2 className="font-bold text-gray-900">
                 Machine Information
@@ -341,20 +334,6 @@ export default function RechargeMachinePage() {
                 <p className="font-semibold text-gray-900">
                   {machine.institution_name ||
                     "Not specified"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Monitor className="mt-0.5 h-4 w-4 text-gray-400" />
-
-              <div>
-                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
-                  Machine ID
-                </p>
-
-                <p className="break-all font-mono text-sm font-medium text-gray-700">
-                  {machine.id}
                 </p>
               </div>
             </div>
@@ -388,27 +367,6 @@ export default function RechargeMachinePage() {
                 </p>
               </div>
             </div>
-
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
-                Status
-              </p>
-
-              <span
-                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                  machine.status === "active"
-                    ? "bg-green-50 text-green-600"
-                    : machine.status === "maintenance"
-                      ? "bg-yellow-50 text-yellow-600"
-                      : machine.status === "blocked"
-                        ? "bg-red-50 text-red-600"
-                        : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {machine.status ||
-                  "Unknown"}
-              </span>
-            </div>
           </div>
 
           <div className="mt-8 rounded-2xl bg-brand-purple p-5 text-white">
@@ -437,9 +395,6 @@ export default function RechargeMachinePage() {
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-7">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-                <Plus className="h-5 w-5 text-green-600" />
-              </div>
 
               <div>
                 <h2 className="font-bold text-gray-900">

@@ -1,6 +1,7 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Building2,
   CreditCard,
   Loader2,
   ReceiptText,
@@ -18,9 +19,20 @@ import {
 
 import { toast } from "sonner";
 
-import { getRFIDHistory } from "../../../api/machineApi";
+import {
+  getInstitutionMembers,
+  getRFIDCards,
+  getRFIDHistory,
+} from "../../../api/machineApi";
+
+import { getInstitutions } from "../../../api/institutionApi";
+
+import { useSudoAuth } from "../../../context/SudoAuthContext";
+
+import type { Institution } from "../../../types/institution";
 
 import type {
+  RFIDCard,
   RFIDTransaction,
 } from "../../../types/machine";
 
@@ -109,18 +121,64 @@ const TransactionIcon = ({
 // ==========================================
 
 export default function TransactionsPage() {
+  const { accessToken } =
+    useSudoAuth();
+
   // ==========================================
-  // STATE
+  // TRANSACTION STATE
   // ==========================================
 
   const [transactions, setTransactions] =
     useState<RFIDTransaction[]>([]);
 
+  const [rfidCards, setRfidCards] =
+    useState<RFIDCard[]>([]);
+
   const [isLoading, setIsLoading] =
     useState(true);
 
+  const [isRefreshing, setIsRefreshing] =
+    useState(false);
+
   const [error, setError] =
     useState<string | null>(null);
+
+  // ==========================================
+  // INSTITUTION FILTER STATE
+  // ==========================================
+
+  const [institutions, setInstitutions] =
+    useState<Institution[]>([]);
+
+  const [
+    selectedInstitution,
+    setSelectedInstitution,
+  ] = useState("");
+
+  const [
+    isLoadingInstitutions,
+    setIsLoadingInstitutions,
+  ] = useState(true);
+
+  const [
+    isLoadingInstitutionMembers,
+    setIsLoadingInstitutionMembers,
+  ] = useState(false);
+
+  /*
+   * Card UUIDs belonging to the selected
+   * institution.
+   */
+  const [
+    institutionCardUuids,
+    setInstitutionCardUuids,
+  ] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // ==========================================
+  // OTHER FILTERS
+  // ==========================================
 
   const [searchQuery, setSearchQuery] =
     useState("");
@@ -128,11 +186,8 @@ export default function TransactionsPage() {
   const [transactionType, setTransactionType] =
     useState("all");
 
-  const [isRefreshing, setIsRefreshing] =
-    useState(false);
-
   // ==========================================
-  // FETCH TRANSACTIONS
+  // LOAD TRANSACTIONS + RFID CARDS
   // ==========================================
 
   const fetchTransactions =
@@ -140,12 +195,35 @@ export default function TransactionsPage() {
       try {
         setError(null);
 
-        const data =
-          await getRFIDHistory();
+        /*
+         * We need both APIs:
+         *
+         * /rfid/history
+         *       ↓
+         * transactions
+         *
+         * /rfid/cards
+         *       ↓
+         * card_uuid <-> student
+         */
+
+        const [
+          transactionData,
+          cardData,
+        ] = await Promise.all([
+          getRFIDHistory(),
+          getRFIDCards(),
+        ]);
 
         setTransactions(
-          Array.isArray(data)
-            ? data
+          Array.isArray(transactionData)
+            ? transactionData
+            : [],
+        );
+
+        setRfidCards(
+          Array.isArray(cardData)
+            ? cardData
             : [],
         );
       } catch (error) {
@@ -171,38 +249,270 @@ export default function TransactionsPage() {
     }, []);
 
   // ==========================================
-  // INITIAL LOAD
+  // LOAD INSTITUTIONS
   // ==========================================
 
   useEffect(() => {
-    fetchTransactions();
+    const loadInstitutions =
+      async () => {
+        if (!accessToken) {
+          setIsLoadingInstitutions(
+            false,
+          );
+          return;
+        }
+
+        try {
+          setIsLoadingInstitutions(
+            true,
+          );
+
+          const data =
+            await getInstitutions(
+              accessToken,
+            );
+
+          setInstitutions(
+            Array.isArray(data)
+              ? data
+              : [],
+          );
+        } catch (error) {
+          console.error(
+            "Failed to load institutions:",
+            error,
+          );
+
+          toast.error(
+            "Failed to load institutions",
+          );
+        } finally {
+          setIsLoadingInstitutions(
+            false,
+          );
+        }
+      };
+
+    void loadInstitutions();
+  }, [accessToken]);
+
+  // ==========================================
+  // INITIAL TRANSACTION LOAD
+  // ==========================================
+
+  useEffect(() => {
+    void fetchTransactions();
   }, [fetchTransactions]);
+
+  // ==========================================
+  // LOAD STUDENTS FOR SELECTED INSTITUTION
+  // ==========================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInstitutionCards =
+      async () => {
+        /*
+         * No institution selected.
+         *
+         * Show all transactions.
+         */
+        if (!selectedInstitution) {
+          setInstitutionCardUuids(
+            new Set(),
+          );
+
+          setIsLoadingInstitutionMembers(
+            false,
+          );
+
+          return;
+        }
+
+        try {
+          setIsLoadingInstitutionMembers(
+            true,
+          );
+
+          /*
+           * Example:
+           *
+           * GET
+           * /institutions/members
+           * ?institution_id=xxxxx
+           */
+
+          const response =
+            await getInstitutionMembers(
+              selectedInstitution,
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          const students =
+            response.students ?? [];
+
+          // ====================================
+          // BUILD STUDENT IDENTIFIER SET
+          // ====================================
+
+          /*
+           * We compare using BOTH:
+           *
+           * std_id
+           * std_reg
+           *
+           * because RFID card data may contain
+           * either one.
+           */
+
+          const studentIdentifiers =
+            new Set<string>();
+
+          for (const student of students) {
+            if (
+              student.std_id?.trim()
+            ) {
+              studentIdentifiers.add(
+                student.std_id
+                  .trim()
+                  .toLowerCase(),
+              );
+            }
+
+            if (
+              student.std_reg?.trim()
+            ) {
+              studentIdentifiers.add(
+                student.std_reg
+                  .trim()
+                  .toLowerCase(),
+              );
+            }
+          }
+
+          // ====================================
+          // FIND RFID CARDS
+          // ====================================
+
+          const cardUuids =
+            new Set<string>();
+
+          for (const card of rfidCards) {
+            const cardStdId =
+              card.std_id
+                ?.trim()
+                .toLowerCase();
+
+            const cardStdReg =
+              card.std_reg
+                ?.trim()
+                .toLowerCase();
+
+            const matchesStudent =
+              Boolean(
+                (
+                  cardStdId &&
+                  studentIdentifiers.has(
+                    cardStdId,
+                  )
+                ) ||
+                  (
+                    cardStdReg &&
+                    studentIdentifiers.has(
+                      cardStdReg,
+                    )
+                  ),
+              );
+
+            if (
+              matchesStudent &&
+              card.card_uuid
+            ) {
+              cardUuids.add(
+                card.card_uuid
+                  .trim()
+                  .toLowerCase(),
+              );
+            }
+          }
+
+          setInstitutionCardUuids(
+            cardUuids,
+          );
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+
+          console.error(
+            "Failed to load institution members:",
+            error,
+          );
+
+          setInstitutionCardUuids(
+            new Set(),
+          );
+
+          toast.error(
+            "Failed to load institution students",
+          );
+        } finally {
+          if (!cancelled) {
+            setIsLoadingInstitutionMembers(
+              false,
+            );
+          }
+        }
+      };
+
+    void loadInstitutionCards();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedInstitution,
+    rfidCards,
+  ]);
 
   // ==========================================
   // REFRESH
   // ==========================================
 
-  const handleRefresh = async () => {
-    if (isRefreshing) return;
+  const handleRefresh =
+    async () => {
+      if (isRefreshing) {
+        return;
+      }
 
-    setIsRefreshing(true);
+      setIsRefreshing(true);
 
-    await fetchTransactions();
-  };
+      await fetchTransactions();
+    };
 
   // ==========================================
-  // FILTERED TRANSACTIONS
+  // FILTER TRANSACTIONS
   // ==========================================
 
   const filteredTransactions =
     useMemo(() => {
+      const query =
+        searchQuery
+          .trim()
+          .toLowerCase();
+
       return transactions.filter(
         (transaction) => {
-          const query =
-            searchQuery.toLowerCase();
+          // ==================================
+          // SEARCH FILTER
+          // ==================================
 
           const matchesSearch =
-            !searchQuery ||
+            !query ||
             transaction.card_uuid
               ?.toLowerCase()
               .includes(query) ||
@@ -216,15 +526,45 @@ export default function TransactionsPage() {
               ?.toLowerCase()
               .includes(query);
 
+          // ==================================
+          // TRANSACTION TYPE FILTER
+          // ==================================
+
           const matchesType =
-            transactionType === "all" ||
+            transactionType ===
+              "all" ||
             transaction.txn_type
               ?.toLowerCase() ===
               transactionType.toLowerCase();
 
+          // ==================================
+          // INSTITUTION FILTER
+          // ==================================
+
+          /*
+           * No institution selected:
+           * show everything.
+           *
+           * Institution selected:
+           * transaction.card_uuid must exist
+           * in institutionCardUuids.
+           */
+
+          const matchesInstitution =
+            !selectedInstitution ||
+            (
+              transaction.card_uuid &&
+              institutionCardUuids.has(
+                transaction.card_uuid
+                  .trim()
+                  .toLowerCase(),
+              )
+            );
+
           return (
             matchesSearch &&
-            matchesType
+            matchesType &&
+            matchesInstitution
           );
         },
       );
@@ -232,63 +572,81 @@ export default function TransactionsPage() {
       transactions,
       searchQuery,
       transactionType,
+      selectedInstitution,
+      institutionCardUuids,
     ]);
 
   // ==========================================
   // STATISTICS
   // ==========================================
 
-  const statistics = useMemo(() => {
-    const totalTransactions =
-      transactions.length;
+  /*
+   * These remain platform-wide.
+   *
+   * We are not changing the existing
+   * dashboard statistics behavior.
+   */
 
-    const totalCredit =
-      transactions
-        .filter((transaction) => {
-          const type =
-            transaction.txn_type?.toLowerCase();
+  const statistics =
+    useMemo(() => {
+      const totalTransactions =
+        transactions.length;
 
-          return (
-            type === "credit" ||
-            type === "recharge"
+      const totalCredit =
+        transactions
+          .filter((transaction) => {
+            const type =
+              transaction.txn_type
+                ?.toLowerCase();
+
+            return (
+              type === "credit" ||
+              type === "recharge"
+            );
+          })
+          .reduce(
+            (
+              total,
+              transaction,
+            ) =>
+              total +
+              Number(
+                transaction.amount || 0,
+              ),
+            0,
           );
-        })
-        .reduce(
-          (total, transaction) =>
-            total +
-            Number(
-              transaction.amount || 0,
-            ),
-          0,
-        );
 
-    const totalDebit =
-      transactions
-        .filter((transaction) => {
-          const type =
-            transaction.txn_type?.toLowerCase();
+      const totalDebit =
+        transactions
+          .filter((transaction) => {
+            const type =
+              transaction.txn_type
+                ?.toLowerCase();
 
-          return (
-            type === "debit" ||
-            type === "payment" ||
-            type === "spend"
+            return (
+              type === "debit" ||
+              type === "payment" ||
+              type === "spend"
+            );
+          })
+          .reduce(
+            (
+              total,
+              transaction,
+            ) =>
+              total +
+              Number(
+                transaction.amount || 0,
+              ),
+            0,
           );
-        })
-        .reduce(
-          (total, transaction) =>
-            total +
-            Number(
-              transaction.amount || 0,
-            ),
-          0,
-        );
 
-    return {
-      totalTransactions,
-      totalCredit,
-      totalDebit,
-    };
-  }, [transactions]);
+      return {
+        totalTransactions,
+        totalCredit,
+        totalDebit,
+      };
+    }, [transactions]);
 
   // ==========================================
   // FORMAT CURRENCY
@@ -304,7 +662,9 @@ export default function TransactionsPage() {
         currency: "INR",
         maximumFractionDigits: 2,
       },
-    ).format(Number(amount || 0));
+    ).format(
+      Number(amount || 0),
+    );
   };
 
   // ==========================================
@@ -314,9 +674,12 @@ export default function TransactionsPage() {
   const formatDate = (
     date?: string,
   ) => {
-    if (!date) return "-";
+    if (!date) {
+      return "-";
+    }
 
-    const parsedDate = new Date(date);
+    const parsedDate =
+      new Date(date);
 
     if (
       Number.isNaN(
@@ -339,7 +702,7 @@ export default function TransactionsPage() {
   };
 
   // ==========================================
-  // GET AMOUNT STYLE
+  // AMOUNT STYLE
   // ==========================================
 
   const getAmountStyle = (
@@ -367,7 +730,7 @@ export default function TransactionsPage() {
   };
 
   // ==========================================
-  // GET AMOUNT PREFIX
+  // AMOUNT PREFIX
   // ==========================================
 
   const getAmountPrefix = (
@@ -395,7 +758,18 @@ export default function TransactionsPage() {
   };
 
   // ==========================================
-  // LOADING
+  // SELECTED INSTITUTION NAME
+  // ==========================================
+
+  const selectedInstitutionName =
+    institutions.find(
+      (institution) =>
+        institution.id ===
+        selectedInstitution,
+    )?.name;
+
+  // ==========================================
+  // INITIAL LOADING
   // ==========================================
 
   if (isLoading) {
@@ -413,7 +787,7 @@ export default function TransactionsPage() {
   }
 
   // ==========================================
-  // COMPONENT UI
+  // PAGE
   // ==========================================
 
   return (
@@ -459,8 +833,7 @@ export default function TransactionsPage() {
       ====================================== */}
 
       <div className="grid gap-4 md:grid-cols-3">
-        {/* TOTAL TRANSACTIONS */}
-
+        {/* TOTAL */}
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm font-medium text-gray-500">
@@ -468,7 +841,9 @@ export default function TransactionsPage() {
             </p>
 
             <h3 className="mt-2 text-2xl font-bold text-gray-900">
-              {statistics.totalTransactions}
+              {
+                statistics.totalTransactions
+              }
             </h3>
           </div>
 
@@ -477,8 +852,7 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        {/* TOTAL CREDIT */}
-
+        {/* CREDIT */}
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm font-medium text-gray-500">
@@ -497,8 +871,7 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        {/* TOTAL DEBIT */}
-
+        {/* DEBIT */}
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm font-medium text-gray-500">
@@ -519,7 +892,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* ======================================
-          ERROR STATE
+          ERROR
       ====================================== */}
 
       {error && (
@@ -531,7 +904,7 @@ export default function TransactionsPage() {
           <button
             type="button"
             onClick={handleRefresh}
-            className="text-sm font-semibold text-red-600 underline"
+            className="rounded-full px-3 py-1 text-sm font-semibold text-red-600 underline"
           >
             Try Again
           </button>
@@ -539,14 +912,13 @@ export default function TransactionsPage() {
       )}
 
       {/* ======================================
-          FILTER SECTION
+          FILTERS
       ====================================== */}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           {/* SEARCH */}
-
-          <div className="relative w-full lg:max-w-md">
+          <div className="relative w-full xl:max-w-md">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
             <input
@@ -562,46 +934,122 @@ export default function TransactionsPage() {
             />
           </div>
 
-          {/* TYPE FILTER */}
+          {/* DROPDOWNS */}
+          <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+            {/* =================================
+                INSTITUTION FILTER
+            ================================= */}
 
-          <select
-            value={transactionType}
-            onChange={(event) =>
-              setTransactionType(
-                event.target.value,
-              )
-            }
-            className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
-          >
-            <option value="all">
-              All Transactions
-            </option>
+            <div className="relative flex-1 sm:min-w-[230px]">
+              <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
-            <option value="spend">
-              Spend
-            </option>
+              <select
+                value={
+                  selectedInstitution
+                }
+                onChange={(event) => {
+                  setSelectedInstitution(
+                    event.target.value,
+                  );
+                }}
+                disabled={
+                  isLoadingInstitutions ||
+                  isLoadingInstitutionMembers
+                }
+                className="w-full appearance-none rounded-full border border-gray-200 bg-white py-2.5 pl-11 pr-10 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">
+                  {isLoadingInstitutions
+                    ? "Loading institutions..."
+                    : "All Institutions"}
+                </option>
 
-            <option value="credit">
-              Credit
-            </option>
+                {institutions.map(
+                  (institution) => (
+                    <option
+                      key={
+                        institution.id
+                      }
+                      value={
+                        institution.id
+                      }
+                    >
+                      {
+                        institution.name
+                      }
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
 
-            <option value="debit">
-              Debit
-            </option>
+            {/* =================================
+                TRANSACTION TYPE
+            ================================= */}
 
-            <option value="recharge">
-              Recharge
-            </option>
+            <select
+              value={
+                transactionType
+              }
+              onChange={(event) =>
+                setTransactionType(
+                  event.target.value,
+                )
+              }
+              className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
+            >
+              <option value="all">
+                All Transactions
+              </option>
 
-            <option value="payment">
-              Payment
-            </option>
-          </select>
+              <option value="spend">
+                Spend
+              </option>
+
+              <option value="credit">
+                Credit
+              </option>
+
+              <option value="debit">
+                Debit
+              </option>
+
+              <option value="recharge">
+                Recharge
+              </option>
+
+              <option value="payment">
+                Payment
+              </option>
+            </select>
+          </div>
         </div>
+
+        {/* SELECTED INSTITUTION INFO */}
+
+        {selectedInstitution && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+            <Building2 className="h-3.5 w-3.5 text-brand-purple" />
+
+            <span>
+              Showing transactions for{" "}
+              <span className="font-semibold text-gray-700">
+                {
+                  selectedInstitutionName ??
+                  "selected institution"
+                }
+              </span>
+            </span>
+
+            {isLoadingInstitutionMembers && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-purple" />
+            )}
+          </div>
+        )}
       </div>
 
       {/* ======================================
-          TRANSACTIONS TABLE
+          TRANSACTION TABLE
       ====================================== */}
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -614,9 +1062,12 @@ export default function TransactionsPage() {
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              {filteredTransactions.length}{" "}
+              {
+                filteredTransactions.length
+              }{" "}
               transaction
-              {filteredTransactions.length !== 1
+              {filteredTransactions.length !==
+              1
                 ? "s"
                 : ""}{" "}
               found
@@ -626,7 +1077,9 @@ export default function TransactionsPage() {
           <Wallet className="h-5 w-5 text-gray-400" />
         </div>
 
-        {/* DESKTOP TABLE */}
+        {/* ====================================
+            DESKTOP TABLE
+        ==================================== */}
 
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full">
@@ -663,10 +1116,11 @@ export default function TransactionsPage() {
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {filteredTransactions.length === 0 ? (
+              {filteredTransactions.length ===
+              0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-6 py-16 text-center"
                   >
                     <div className="flex flex-col items-center">
@@ -677,8 +1131,9 @@ export default function TransactionsPage() {
                       </h3>
 
                       <p className="mt-1 text-sm text-gray-500">
-                        Transactions will appear here
-                        once RFID activity occurs.
+                        {selectedInstitution
+                          ? "No RFID transactions belong to this institution."
+                          : "Transactions will appear here once RFID activity occurs."}
                       </p>
                     </div>
                   </td>
@@ -695,7 +1150,9 @@ export default function TransactionsPage() {
 
                     return (
                       <tr
-                        key={transactionKey}
+                        key={
+                          transactionKey
+                        }
                         className="transition hover:bg-gray-50"
                       >
                         {/* TRANSACTION */}
@@ -708,34 +1165,28 @@ export default function TransactionsPage() {
                               }
                             />
 
-                            <div>
-                              <p className="font-semibold text-gray-900">
-                                {getTransactionTypeLabel(
-                                  transaction.txn_type,
-                                )}
-                              </p>
-
-                              
-                            </div>
+                            <p className="font-semibold text-gray-900">
+                              {getTransactionTypeLabel(
+                                transaction.txn_type,
+                              )}
+                            </p>
                           </div>
                         </td>
 
-                        {/* CARD */}
+                        {/* RFID CARD */}
 
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <CreditCard className="h-4 w-4 text-gray-400" />
 
                             <span className="font-medium text-gray-700">
-                              {transaction.card_uuid ||
-                                "-"}
+                              {
+                                transaction.card_uuid ||
+                                "-"
+                              }
                             </span>
                           </div>
                         </td>
-
-                        {/* SESSION */}
-
-                       
 
                         {/* TYPE */}
 
@@ -769,7 +1220,7 @@ export default function TransactionsPage() {
                           </span>
                         </td>
 
-                        {/* BALANCE AFTER */}
+                        {/* BALANCE */}
 
                         <td className="px-6 py-4">
                           <span className="font-medium text-gray-700">
@@ -783,8 +1234,10 @@ export default function TransactionsPage() {
 
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-600">
-                            {transaction.location ||
-                              "-"}
+                            {
+                              transaction.location ||
+                              "-"
+                            }
                           </span>
                         </td>
 
@@ -807,11 +1260,12 @@ export default function TransactionsPage() {
         </div>
 
         {/* ====================================
-            MOBILE TRANSACTION CARDS
+            MOBILE CARDS
         ==================================== */}
 
         <div className="divide-y divide-gray-100 lg:hidden">
-          {filteredTransactions.length === 0 ? (
+          {filteredTransactions.length ===
+          0 ? (
             <div className="px-6 py-16 text-center">
               <ReceiptText className="mx-auto h-10 w-10 text-gray-300" />
 
@@ -820,8 +1274,9 @@ export default function TransactionsPage() {
               </h3>
 
               <p className="mt-1 text-sm text-gray-500">
-                Transactions will appear here once
-                RFID activity occurs.
+                {selectedInstitution
+                  ? "No RFID transactions belong to this institution."
+                  : "Transactions will appear here once RFID activity occurs."}
               </p>
             </div>
           ) : (
@@ -836,7 +1291,9 @@ export default function TransactionsPage() {
 
                 return (
                   <div
-                    key={transactionKey}
+                    key={
+                      transactionKey
+                    }
                     className="space-y-3 p-4"
                   >
                     {/* TOP */}
@@ -882,16 +1339,22 @@ export default function TransactionsPage() {
                     {/* DETAILS */}
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
+                      {/* RFID CARD */}
+
                       <div>
                         <p className="text-xs text-gray-400">
                           RFID Card
                         </p>
 
                         <p className="mt-1 font-medium text-gray-700">
-                          {transaction.card_uuid ||
-                            "-"}
+                          {
+                            transaction.card_uuid ||
+                            "-"
+                          }
                         </p>
                       </div>
+
+                      {/* SESSION */}
 
                       <div>
                         <p className="text-xs text-gray-400">
@@ -899,10 +1362,14 @@ export default function TransactionsPage() {
                         </p>
 
                         <p className="mt-1 truncate font-medium text-gray-700">
-                          {transaction.session_id ||
-                            "-"}
+                          {
+                            transaction.session_id ||
+                            "-"
+                          }
                         </p>
                       </div>
+
+                      {/* BALANCE */}
 
                       <div>
                         <p className="text-xs text-gray-400">
@@ -916,19 +1383,23 @@ export default function TransactionsPage() {
                         </p>
                       </div>
 
+                      {/* LOCATION */}
+
                       <div>
                         <p className="text-xs text-gray-400">
                           Location
                         </p>
 
                         <p className="mt-1 font-medium text-gray-700">
-                          {transaction.location ||
-                            "-"}
+                          {
+                            transaction.location ||
+                            "-"
+                          }
                         </p>
                       </div>
                     </div>
 
-                    {/* TYPE */}
+                    {/* TYPE BADGE */}
 
                     <span
                       className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getTransactionTypeStyle(

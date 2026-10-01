@@ -56,26 +56,26 @@ export default function SudoTopbar({
         {/* Notifications */}
         <button
           type="button"
-          className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:bg-gray-50"
         >
           <Bell className="h-5 w-5" />
 
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#7E49F2]" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-purple" />
         </button>
 
         {/* Admin Profile */}
         <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
           <div className="hidden text-right sm:block">
-            <p className="text-sm font-semibold text-[#1A1426]">
+            <p className="text-sm font-semibold text-brand-dark">
               {displayName}
             </p>
 
-            <p className="text-xs text-[#7E49F2]">
+            <p className="text-xs text-brand-purple">
               Sudo Administrator
             </p>
           </div>
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-dark/10 font-semibold text-[#7E49F2]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-purple font-semibold text-brand-white">
             {initials ? (
               initials
             ) : (

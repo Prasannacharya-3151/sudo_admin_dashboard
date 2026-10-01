@@ -9,11 +9,12 @@ import type {
   RFIDCardDetails,
   RFIDTransaction,
   UpdateCardStatusPayload,
+  InstitutionMembersResponse,
 } from "../types/machine";
 
-/* =========================
-   HELPERS
-========================= */
+// ==========================================
+// HELPERS
+// ==========================================
 
 async function getErrorMessage(
   response: Response,
@@ -68,9 +69,9 @@ async function unwrapResponse<T>(
   return body as T;
 }
 
-/* =========================
-   MACHINES
-========================= */
+// ==========================================
+// MACHINES
+// ==========================================
 
 export async function getMachines(): Promise<
   RechargeMachine[]
@@ -158,9 +159,9 @@ export async function deleteMachine(
   await unwrapResponse<unknown>(response);
 }
 
-/* =========================
-   RFID CARDS
-========================= */
+// ==========================================
+// RFID CARDS
+// ==========================================
 
 export async function getRFIDCards(): Promise<
   RFIDCard[]
@@ -227,9 +228,9 @@ export async function deleteRFIDCard(
   await unwrapResponse<unknown>(response);
 }
 
-/* =========================
-   RFID HISTORY
-========================= */
+// ==========================================
+// RFID HISTORY
+// ==========================================
 
 export async function getRFIDCardHistory(
   cardUuid: string,
@@ -267,6 +268,34 @@ export async function getTransactionBySessionId(
   );
 
   return unwrapResponse<RFIDTransaction>(
+    response,
+  );
+}
+
+// ==========================================
+// INSTITUTION MEMBERS
+// ==========================================
+//
+// GET:
+// /institutions/members?institution_id=UUID
+//
+// Used to determine which students belong
+// to the selected institution.
+//
+// ==========================================
+
+export async function getInstitutionMembers(
+  institutionId: string,
+): Promise<InstitutionMembersResponse> {
+  const params = new URLSearchParams({
+    institution_id: institutionId,
+  });
+
+  const response = await fetch(
+    `${RFID_API_BASE_URL}/institutions/members?${params.toString()}`,
+  );
+
+  return unwrapResponse<InstitutionMembersResponse>(
     response,
   );
 }

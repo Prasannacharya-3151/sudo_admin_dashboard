@@ -1,9 +1,17 @@
+// ==========================================
+// API RESPONSE
+// ==========================================
+
 export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
   detail?: string;
 }
+
+// ==========================================
+// MACHINE
+// ==========================================
 
 export type MachineStatus =
   | "active"
@@ -13,29 +21,45 @@ export type MachineStatus =
 
 export interface RechargeMachine {
   id: string;
+
   institution_id: string;
+
   institution_name: string;
+
   recharge_machine_block: string;
+
   ble_id: string;
+
   initial_balance?: number;
+
   recharge_balance?: string | number;
+
   balance?: string | number;
+
   status?: MachineStatus | string;
+
   created_at?: string;
+
   updated_at?: string;
 }
 
 export interface CreateMachinePayload {
   institution_id: string;
+
   institution_name: string;
+
   recharge_machine_block: string;
+
   ble_id: string;
+
   initial_balance: number;
 }
 
 export interface MachineBalance {
   machine_id: string;
+
   balance: string | number;
+
   updated_at?: string;
 }
 
@@ -43,9 +67,9 @@ export interface RechargeMachinePayload {
   amount: number;
 }
 
-/* =========================
-   RFID CARD
-========================= */
+// ==========================================
+// RFID CARD
+// ==========================================
 
 export type RFIDCardStatus =
   | "active"
@@ -58,20 +82,26 @@ export interface RFIDCard {
   card_uuid: string;
 
   balance?: string | number;
+
   status?: RFIDCardStatus | string;
 
   std_id?: string;
+
   std_name?: string;
+
   std_reg?: string;
+
   combination?: string;
 
   machine_id?: string;
 
   created_at?: string;
+
   updated_at?: string;
 
-  /* Detail API fields */
+  // Detail API fields
   wallet_bal?: string | number;
+
   wallet_status?: RFIDCardStatus | string;
 }
 
@@ -79,11 +109,15 @@ export interface RFIDCardDetails extends RFIDCard {
   card_uuid: string;
 
   wallet_bal: string | number;
+
   wallet_status: RFIDCardStatus | string;
 
   std_id?: string;
+
   std_reg?: string;
+
   std_name?: string;
+
   group?: string;
 
   transactions?: RFIDTransaction[];
@@ -93,9 +127,9 @@ export interface UpdateCardStatusPayload {
   status: RFIDCardStatus;
 }
 
-/* =========================
-   RFID TRANSACTIONS
-========================= */
+// ==========================================
+// RFID TRANSACTIONS
+// ==========================================
 
 export type RFIDTransactionType =
   | "spend"
@@ -118,17 +152,63 @@ export interface RFIDTransaction {
 
   created_at: string;
 
-  /* Optional compatibility fields */
+  // Optional compatibility fields
   id?: string;
+
   card_uuid?: string;
+
   machine_id?: string;
+
   ble_id?: string;
+
   description?: string;
 }
 
-/* =========================
-   API RESPONSE TYPES
-========================= */
+// ==========================================
+// INSTITUTION MEMBERS
+// ==========================================
+
+export interface InstitutionMemberStudent {
+  std_id: string;
+
+  institution_id: string;
+
+  institution_name?: string | null;
+
+  std_reg: string;
+
+  std_name: string;
+
+  combination?: string | null;
+
+  created_at?: string;
+}
+
+export interface InstitutionMemberUser {
+  id: string;
+
+  institution_id: string;
+
+  institution_name?: string | null;
+
+  email: string;
+
+  created_at?: string;
+}
+
+export interface InstitutionMembersResponse {
+  institution_id: string;
+
+  institution_name?: string | null;
+
+  users: InstitutionMemberUser[];
+
+  students: InstitutionMemberStudent[];
+}
+
+// ==========================================
+// API RESPONSE TYPES
+// ==========================================
 
 export type MachineResponse =
   ApiResponse<RechargeMachine>;
@@ -147,3 +227,6 @@ export type RFIDCardResponse =
 
 export type RFIDHistoryResponse =
   ApiResponse<RFIDTransaction[]>;
+
+export type InstitutionMembersApiResponse =
+  ApiResponse<InstitutionMembersResponse>;
