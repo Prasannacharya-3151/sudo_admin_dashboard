@@ -17,7 +17,6 @@ import {
 } from "react";
 
 import { useNavigate } from "react-router-dom";
-
 import { toast } from "sonner";
 
 import {
@@ -30,7 +29,6 @@ import { getInstitutions } from "../../../api/institutionApi";
 import { useSudoAuth } from "../../../context/SudoAuthContext";
 
 import type { RFIDCard } from "../../../types/machine";
-
 import type { Institution } from "../../../types/institution";
 
 // ==========================================
@@ -46,27 +44,21 @@ export default function RFIDCardsPage() {
   // RFID CARD STATE
   // ==========================================
 
-  const [cards, setCards] = useState<RFIDCard[]>(
-    [],
-  );
+  const [cards, setCards] = useState<RFIDCard[]>([]);
 
   const [search, setSearch] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // ==========================================
   // INSTITUTION STATE
   // ==========================================
 
-  const [institutions, setInstitutions] =
-    useState<Institution[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
 
-  const [selectedInstitution, setSelectedInstitution] =
-    useState("");
+  const [selectedInstitution, setSelectedInstitution] = useState("");
 
   const [loadingInstitutions, setLoadingInstitutions] =
     useState(true);
@@ -86,7 +78,6 @@ export default function RFIDCardsPage() {
   async function loadCards() {
     try {
       setLoading(true);
-
       setError(null);
 
       const data = await getRFIDCards();
@@ -110,20 +101,11 @@ export default function RFIDCardsPage() {
   // LOAD INSTITUTIONS
   // ==========================================
 
-  async function loadInstitutions() {
-    if (!accessToken) {
-      setLoadingInstitutions(false);
-
-      return;
-    }
-
+  async function loadInstitutions(token: string) {
     try {
       setLoadingInstitutions(true);
 
-      const data =
-        await getInstitutions(
-          accessToken,
-        );
+      const data = await getInstitutions(token);
 
       setInstitutions(data);
     } catch (err) {
@@ -143,16 +125,40 @@ export default function RFIDCardsPage() {
   }
 
   // ==========================================
-  // INITIAL LOAD
+  // INITIAL LOAD - RFID CARDS
   // ==========================================
 
   useEffect(() => {
     void loadCards();
+
+    // RFID cards should load only when
+    // this page/component mounts.
+    //
+    // Token refresh must NOT trigger this again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ==========================================
+  // INITIAL LOAD - INSTITUTIONS
+  // ==========================================
+
   useEffect(() => {
-    void loadInstitutions();
-  }, [accessToken]);
+    if (!accessToken) {
+      setLoadingInstitutions(false);
+      return;
+    }
+
+    void loadInstitutions(accessToken);
+
+    // IMPORTANT:
+    // Do not add accessToken here.
+    //
+    // The token can rotate in the background,
+    // but the institution list should remain
+    // exactly as it is.
+    //
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================================
   // LOAD SELECTED INSTITUTION STUDENTS
@@ -160,84 +166,68 @@ export default function RFIDCardsPage() {
 
   useEffect(() => {
     if (!selectedInstitution) {
-      setInstitutionStudentIds(
-        new Set(),
-      );
+      setInstitutionStudentIds(new Set());
 
-      setLoadingInstitutionStudents(
-        false,
-      );
+      setLoadingInstitutionStudents(false);
 
       return;
     }
 
     let cancelled = false;
 
-    const loadInstitutionStudents =
-      async () => {
-        try {
-          setLoadingInstitutionStudents(
-            true,
+    const loadInstitutionStudents = async () => {
+      try {
+        setLoadingInstitutionStudents(true);
+
+        const response =
+          await getInstitutionMembers(
+            selectedInstitution,
           );
 
-          const response =
-            await getInstitutionMembers(
-              selectedInstitution,
-            );
-
-          if (cancelled) {
-            return;
-          }
-
-          const identifiers =
-            new Set<string>();
-
-          response.students.forEach(
-            (student) => {
-              if (student.std_id) {
-                identifiers.add(
-                  student.std_id,
-                );
-              }
-
-              if (student.std_reg) {
-                identifiers.add(
-                  student.std_reg,
-                );
-              }
-            },
-          );
-
-          setInstitutionStudentIds(
-            identifiers,
-          );
-        } catch (err) {
-          if (cancelled) {
-            return;
-          }
-
-          console.error(
-            "Failed to load institution students:",
-            err,
-          );
-
-          setInstitutionStudentIds(
-            new Set(),
-          );
-
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : "Failed to load institution students",
-          );
-        } finally {
-          if (!cancelled) {
-            setLoadingInstitutionStudents(
-              false,
-            );
-          }
+        if (cancelled) {
+          return;
         }
-      };
+
+        // ========================================
+        // COLLECT STUDENT IDENTIFIERS
+        // ========================================
+
+        const identifiers = new Set<string>();
+
+        response.students.forEach((student) => {
+          if (student.std_id) {
+            identifiers.add(student.std_id);
+          }
+
+          if (student.std_reg) {
+            identifiers.add(student.std_reg);
+          }
+        });
+
+        setInstitutionStudentIds(identifiers);
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Failed to load institution students:",
+          err,
+        );
+
+        setInstitutionStudentIds(new Set());
+
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Failed to load institution students",
+        );
+      } finally {
+        if (!cancelled) {
+          setLoadingInstitutionStudents(false);
+        }
+      }
+    };
 
     void loadInstitutionStudents();
 
@@ -251,9 +241,7 @@ export default function RFIDCardsPage() {
   // ==========================================
 
   const filteredCards = useMemo(() => {
-    const value = search
-      .trim()
-      .toLowerCase();
+    const value = search.trim().toLowerCase();
 
     return cards.filter((card) => {
       // ========================================
@@ -335,23 +323,21 @@ export default function RFIDCardsPage() {
   // ACTIVE CARDS
   // ==========================================
 
-  const activeCards =
-    filteredCards.filter(
-      (card) =>
-        String(card.status)
-          .toLowerCase() === "active",
-    ).length;
+  const activeCards = filteredCards.filter(
+    (card) =>
+      String(card.status).toLowerCase() ===
+      "active",
+  ).length;
 
   // ==========================================
   // BLOCKED CARDS
   // ==========================================
 
-  const blockedCards =
-    filteredCards.filter(
-      (card) =>
-        String(card.status)
-          .toLowerCase() === "blocked",
-    ).length;
+  const blockedCards = filteredCards.filter(
+    (card) =>
+      String(card.status).toLowerCase() ===
+      "blocked",
+  ).length;
 
   // ==========================================
   // FORMAT CURRENCY
@@ -372,32 +358,27 @@ export default function RFIDCardsPage() {
   // FORMAT DATE
   // ==========================================
 
-  function formatDate(
-    value?: string,
-  ) {
+  function formatDate(value?: string) {
     if (!value) {
       return "—";
     }
 
-    return new Date(
-      value,
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return new Date(value).toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      },
+    );
   }
 
   // ==========================================
   // STATUS CLASS
   // ==========================================
 
-  function statusClass(
-    status?: string,
-  ) {
-    switch (
-      String(status).toLowerCase()
-    ) {
+  function statusClass(status?: string) {
+    switch (String(status).toLowerCase()) {
       case "active":
         return "bg-emerald-50 text-emerald-700";
 
@@ -452,6 +433,7 @@ export default function RFIDCardsPage() {
 
   return (
     <div className="space-y-6 p-6">
+
       {/* ====================================== */}
       {/* HEADER */}
       {/* ====================================== */}
@@ -474,17 +456,13 @@ export default function RFIDCardsPage() {
         <StatCard
           title="Total Cards"
           value={filteredCards.length}
-          icon={
-            <CreditCard size={21} />
-          }
+          icon={<CreditCard size={21} />}
         />
 
         <StatCard
           title="Active Cards"
           value={activeCards}
-          icon={
-            <CheckCircle2 size={21} />
-          }
+          icon={<CheckCircle2 size={21} />}
         />
 
         <StatCard
@@ -495,9 +473,7 @@ export default function RFIDCardsPage() {
 
         <StatCard
           title="Total Balance"
-          value={formatCurrency(
-            totalBalance,
-          )}
+          value={formatCurrency(totalBalance)}
           icon={<Wallet size={21} />}
         />
       </div>
@@ -508,6 +484,7 @@ export default function RFIDCardsPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
           <div>
             <p className="text-sm font-semibold text-gray-900">
               Filter by Institution
@@ -526,9 +503,7 @@ export default function RFIDCardsPage() {
                 event.target.value,
               );
             }}
-            disabled={
-              loadingInstitutions
-            }
+            disabled={loadingInstitutions}
             className="h-12 min-w-[280px] rounded-full border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 outline-none transition focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">
@@ -538,16 +513,14 @@ export default function RFIDCardsPage() {
             </option>
 
             {!loadingInstitutions &&
-              institutions.map(
-                (institution) => (
-                  <option
-                    key={institution.id}
-                    value={institution.id}
-                  >
-                    {institution.name}
-                  </option>
-                ),
-              )}
+              institutions.map((institution) => (
+                <option
+                  key={institution.id}
+                  value={institution.id}
+                >
+                  {institution.name}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -598,9 +571,7 @@ export default function RFIDCardsPage() {
           <input
             value={search}
             onChange={(event) =>
-              setSearch(
-                event.target.value,
-              )
+              setSearch(event.target.value)
             }
             placeholder="Search student, register number, card UUID..."
             className="w-full rounded-full border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-purple-500 focus:bg-white"
@@ -613,6 +584,7 @@ export default function RFIDCardsPage() {
       {/* ====================================== */}
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+
         {loading ? (
           <div className="flex min-h-[300px] items-center justify-center">
             <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -632,9 +604,7 @@ export default function RFIDCardsPage() {
 
             <button
               type="button"
-              onClick={() =>
-                void loadCards()
-              }
+              onClick={() => void loadCards()}
               className="rounded-full bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700"
             >
               Retry
@@ -689,99 +659,92 @@ export default function RFIDCardsPage() {
               </thead>
 
               <tbody>
-                {filteredCards.map(
-                  (card) => (
-                    <tr
-                      key={card.card_uuid}
-                      className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
-                    >
-                      {/* STUDENT */}
+                {filteredCards.map((card) => (
+                  <tr
+                    key={card.card_uuid}
+                    className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                  >
+                    {/* STUDENT */}
 
-                      <td className="px-5 py-4">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {card.std_name ||
-                              "Unknown Student"}
+                    <td className="px-5 py-4">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {card.std_name ||
+                            "Unknown Student"}
+                        </p>
+
+                        {card.std_id && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            ID: {card.std_id}
                           </p>
-
-                          {card.std_id && (
-                            <p className="mt-1 text-xs text-gray-400">
-                              ID:{" "}
-                              {card.std_id}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* REGISTER */}
-
-                      <td className="px-5 py-4 text-sm text-gray-700">
-                        {card.std_reg ||
-                          "—"}
-                      </td>
-
-                      {/* UUID */}
-
-                      <td className="px-5 py-4">
-                        <code className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-700">
-                          {card.card_uuid}
-                        </code>
-                      </td>
-
-                      {/* BALANCE */}
-
-                      <td className="px-5 py-4 text-sm font-semibold text-gray-900">
-                        {formatCurrency(
-                          card.balance ??
-                            card.wallet_bal,
                         )}
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* STATUS */}
+                    {/* REGISTER */}
 
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1.5 text-xs font-medium ${statusClass(
-                            card.status,
-                          )}`}
-                        >
-                          {card.status ||
-                            "Unknown"}
-                        </span>
-                      </td>
+                    <td className="px-5 py-4 text-sm text-gray-700">
+                      {card.std_reg || "—"}
+                    </td>
 
-                      {/* CREATED */}
+                    {/* UUID */}
 
-                      <td className="px-5 py-4 text-sm text-gray-500">
-                        {formatDate(
-                          card.created_at,
-                        )}
-                      </td>
+                    <td className="px-5 py-4">
+                      <code className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-700">
+                        {card.card_uuid}
+                      </code>
+                    </td>
 
-                      {/* ACTION */}
+                    {/* BALANCE */}
 
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/sudo/rfid-cards/${encodeURIComponent(
-                                card.card_uuid,
-                              )}`,
-                            )
-                          }
-                          className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
-                        >
-                          <Eye
-                            size={16}
-                          />
+                    <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                      {formatCurrency(
+                        card.balance ??
+                          card.wallet_bal,
+                      )}
+                    </td>
 
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ),
-                )}
+                    {/* STATUS */}
+
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1.5 text-xs font-medium ${statusClass(
+                          card.status,
+                        )}`}
+                      >
+                        {card.status || "Unknown"}
+                      </span>
+                    </td>
+
+                    {/* CREATED */}
+
+                    <td className="px-5 py-4 text-sm text-gray-500">
+                      {formatDate(
+                        card.created_at,
+                      )}
+                    </td>
+
+                    {/* ACTION */}
+
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/sudo/rfid-cards/${encodeURIComponent(
+                              card.card_uuid,
+                            )}`,
+                          )
+                        }
+                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
+                      >
+                        <Eye size={16} />
+
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

@@ -130,7 +130,7 @@ export default function KioskPairingPage() {
         setIsLoading(false);
       }
     },
-    [accessToken, kioskId, navigate],
+    [kioskId, navigate],
   );
 
   useEffect(() => {

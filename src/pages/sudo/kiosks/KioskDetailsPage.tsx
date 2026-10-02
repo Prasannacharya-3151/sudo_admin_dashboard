@@ -290,7 +290,7 @@ export default function KioskDetailsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [kioskId, accessToken, navigate]);
+  }, [kioskId, navigate]);
 
   useEffect(() => {
     void loadKioskData();

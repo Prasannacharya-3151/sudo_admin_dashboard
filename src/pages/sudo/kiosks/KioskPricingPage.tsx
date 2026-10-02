@@ -151,7 +151,7 @@ export default function KioskPricingPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [kioskId, accessToken, navigate]);
+  }, [kioskId, navigate]);
 
   useEffect(() => {
     void loadPricing();

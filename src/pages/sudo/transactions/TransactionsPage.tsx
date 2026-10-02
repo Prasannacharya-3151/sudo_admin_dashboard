@@ -46,7 +46,7 @@ const getTransactionTypeLabel = (
   if (!type) return "Unknown";
 
   return type
-    .replace(/_/g, " ")
+    .replace(/\_/g, " ")
     .replace(/\b\w/g, (char) =>
       char.toUpperCase(),
     );
@@ -121,8 +121,7 @@ const TransactionIcon = ({
 // ==========================================
 
 export default function TransactionsPage() {
-  const { accessToken } =
-    useSudoAuth();
+  const { accessToken } = useSudoAuth();
 
   // ==========================================
   // TRANSACTION STATE
@@ -165,7 +164,7 @@ export default function TransactionsPage() {
     setIsLoadingInstitutionMembers,
   ] = useState(false);
 
-  /*
+  /**
    * Card UUIDs belonging to the selected
    * institution.
    */
@@ -195,7 +194,7 @@ export default function TransactionsPage() {
       try {
         setError(null);
 
-        /*
+        /**
          * We need both APIs:
          *
          * /rfid/history
@@ -252,49 +251,67 @@ export default function TransactionsPage() {
   // LOAD INSTITUTIONS
   // ==========================================
 
+  async function loadInstitutions(
+    token: string,
+  ) {
+    try {
+      setIsLoadingInstitutions(true);
+
+      const data =
+        await getInstitutions(token);
+
+      setInstitutions(
+        Array.isArray(data)
+          ? data
+          : [],
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load institutions:",
+        error,
+      );
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to load institutions",
+      );
+    } finally {
+      setIsLoadingInstitutions(false);
+    }
+  }
+
+  // ==========================================
+  // INITIAL LOAD - INSTITUTIONS
+  // ==========================================
+
   useEffect(() => {
-    const loadInstitutions =
-      async () => {
-        if (!accessToken) {
-          setIsLoadingInstitutions(
-            false,
-          );
-          return;
-        }
+    if (!accessToken) {
+      setIsLoadingInstitutions(false);
+      return;
+    }
 
-        try {
-          setIsLoadingInstitutions(
-            true,
-          );
+    void loadInstitutions(accessToken);
 
-          const data =
-            await getInstitutions(
-              accessToken,
-            );
-
-          setInstitutions(
-            Array.isArray(data)
-              ? data
-              : [],
-          );
-        } catch (error) {
-          console.error(
-            "Failed to load institutions:",
-            error,
-          );
-
-          toast.error(
-            "Failed to load institutions",
-          );
-        } finally {
-          setIsLoadingInstitutions(
-            false,
-          );
-        }
-      };
-
-    void loadInstitutions();
-  }, [accessToken]);
+    /**
+     * IMPORTANT:
+     *
+     * accessToken intentionally NOT included.
+     *
+     * SudoAuth may rotate the token in the
+     * background.
+     *
+     * Token rotation must NOT cause:
+     *
+     * GET /sudo-admin/institutions
+     *
+     * again.
+     *
+     * The institution list remains in state.
+     *
+     * eslint-disable-next-line react-hooks/exhaustive-deps
+     */
+  }, []);
 
   // ==========================================
   // INITIAL TRANSACTION LOAD
@@ -302,6 +319,14 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     void fetchTransactions();
+
+    /**
+     * fetchTransactions has an empty dependency
+     * array, so this runs once when the page
+     * mounts.
+     *
+     * Token rotation does not trigger this.
+     */
   }, [fetchTransactions]);
 
   // ==========================================
@@ -313,11 +338,12 @@ export default function TransactionsPage() {
 
     const loadInstitutionCards =
       async () => {
-        /*
+        /**
          * No institution selected.
          *
          * Show all transactions.
          */
+
         if (!selectedInstitution) {
           setInstitutionCardUuids(
             new Set(),
@@ -335,10 +361,9 @@ export default function TransactionsPage() {
             true,
           );
 
-          /*
-           * Example:
-           *
+          /**
            * GET
+           *
            * /institutions/members
            * ?institution_id=xxxxx
            */
@@ -359,7 +384,7 @@ export default function TransactionsPage() {
           // BUILD STUDENT IDENTIFIER SET
           // ====================================
 
-          /*
+          /**
            * We compare using BOTH:
            *
            * std_id
@@ -458,7 +483,9 @@ export default function TransactionsPage() {
           );
 
           toast.error(
-            "Failed to load institution students",
+            error instanceof Error
+              ? error.message
+              : "Failed to load institution students",
           );
         } finally {
           if (!cancelled) {
@@ -541,7 +568,7 @@ export default function TransactionsPage() {
           // INSTITUTION FILTER
           // ==================================
 
-          /*
+          /**
            * No institution selected:
            * show everything.
            *
@@ -580,7 +607,7 @@ export default function TransactionsPage() {
   // STATISTICS
   // ==========================================
 
-  /*
+  /**
    * These remain platform-wide.
    *
    * We are not changing the existing
@@ -792,9 +819,10 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-5">
-      {/* ======================================
-          PAGE HEADER
-      ====================================== */}
+
+      {/* ====================================== */}
+      {/* PAGE HEADER */}
+      {/* ====================================== */}
 
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
@@ -828,12 +856,14 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* ======================================
-          STATISTICS
-      ====================================== */}
+      {/* ====================================== */}
+      {/* STATISTICS */}
+      {/* ====================================== */}
 
       <div className="grid gap-4 md:grid-cols-3">
+
         {/* TOTAL */}
+
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm font-medium text-gray-500">
@@ -841,9 +871,7 @@ export default function TransactionsPage() {
             </p>
 
             <h3 className="mt-2 text-2xl font-bold text-gray-900">
-              {
-                statistics.totalTransactions
-              }
+              {statistics.totalTransactions}
             </h3>
           </div>
 
@@ -853,6 +881,7 @@ export default function TransactionsPage() {
         </div>
 
         {/* CREDIT */}
+
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm font-medium text-gray-500">
@@ -872,6 +901,7 @@ export default function TransactionsPage() {
         </div>
 
         {/* DEBIT */}
+
         <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm font-medium text-gray-500">
@@ -891,9 +921,9 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* ======================================
-          ERROR
-      ====================================== */}
+      {/* ====================================== */}
+      {/* ERROR */}
+      {/* ====================================== */}
 
       {error && (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4">
@@ -911,13 +941,15 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* ======================================
-          FILTERS
-      ====================================== */}
+      {/* ====================================== */}
+      {/* FILTERS */}
+      {/* ====================================== */}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+
           {/* SEARCH */}
+
           <div className="relative w-full xl:max-w-md">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
@@ -935,10 +967,12 @@ export default function TransactionsPage() {
           </div>
 
           {/* DROPDOWNS */}
+
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-            {/* =================================
-                INSTITUTION FILTER
-            ================================= */}
+
+            {/* ================================= */}
+            {/* INSTITUTION FILTER */}
+            {/* ================================= */}
 
             <div className="relative flex-1 sm:min-w-[230px]">
               <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -967,30 +1001,22 @@ export default function TransactionsPage() {
                 {institutions.map(
                   (institution) => (
                     <option
-                      key={
-                        institution.id
-                      }
-                      value={
-                        institution.id
-                      }
+                      key={institution.id}
+                      value={institution.id}
                     >
-                      {
-                        institution.name
-                      }
+                      {institution.name}
                     </option>
                   ),
                 )}
               </select>
             </div>
 
-            {/* =================================
-                TRANSACTION TYPE
-            ================================= */}
+            {/* ================================= */}
+            {/* TRANSACTION TYPE */}
+            {/* ================================= */}
 
             <select
-              value={
-                transactionType
-              }
+              value={transactionType}
               onChange={(event) =>
                 setTransactionType(
                   event.target.value,
@@ -1034,10 +1060,8 @@ export default function TransactionsPage() {
             <span>
               Showing transactions for{" "}
               <span className="font-semibold text-gray-700">
-                {
-                  selectedInstitutionName ??
-                  "selected institution"
-                }
+                {selectedInstitutionName ??
+                  "selected institution"}
               </span>
             </span>
 
@@ -1048,11 +1072,12 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* ======================================
-          TRANSACTION TABLE
-      ====================================== */}
+      {/* ====================================== */}
+      {/* TRANSACTION TABLE */}
+      {/* ====================================== */}
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+
         {/* TABLE HEADER */}
 
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
@@ -1062,9 +1087,7 @@ export default function TransactionsPage() {
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              {
-                filteredTransactions.length
-              }{" "}
+              {filteredTransactions.length}{" "}
               transaction
               {filteredTransactions.length !==
               1
@@ -1077,9 +1100,9 @@ export default function TransactionsPage() {
           <Wallet className="h-5 w-5 text-gray-400" />
         </div>
 
-        {/* ====================================
-            DESKTOP TABLE
-        ==================================== */}
+        {/* ==================================== */}
+        {/* DESKTOP TABLE */}
+        {/* ==================================== */}
 
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full">
@@ -1150,9 +1173,7 @@ export default function TransactionsPage() {
 
                     return (
                       <tr
-                        key={
-                          transactionKey
-                        }
+                        key={transactionKey}
                         className="transition hover:bg-gray-50"
                       >
                         {/* TRANSACTION */}
@@ -1180,10 +1201,8 @@ export default function TransactionsPage() {
                             <CreditCard className="h-4 w-4 text-gray-400" />
 
                             <span className="font-medium text-gray-700">
-                              {
-                                transaction.card_uuid ||
-                                "-"
-                              }
+                              {transaction.card_uuid ||
+                                "-"}
                             </span>
                           </div>
                         </td>
@@ -1234,10 +1253,8 @@ export default function TransactionsPage() {
 
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-600">
-                            {
-                              transaction.location ||
-                              "-"
-                            }
+                            {transaction.location ||
+                              "-"}
                           </span>
                         </td>
 
@@ -1259,9 +1276,9 @@ export default function TransactionsPage() {
           </table>
         </div>
 
-        {/* ====================================
-            MOBILE CARDS
-        ==================================== */}
+        {/* ==================================== */}
+        {/* MOBILE CARDS */}
+        {/* ==================================== */}
 
         <div className="divide-y divide-gray-100 lg:hidden">
           {filteredTransactions.length ===
@@ -1291,9 +1308,7 @@ export default function TransactionsPage() {
 
                 return (
                   <div
-                    key={
-                      transactionKey
-                    }
+                    key={transactionKey}
                     className="space-y-3 p-4"
                   >
                     {/* TOP */}
@@ -1339,6 +1354,7 @@ export default function TransactionsPage() {
                     {/* DETAILS */}
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
+
                       {/* RFID CARD */}
 
                       <div>
@@ -1347,10 +1363,8 @@ export default function TransactionsPage() {
                         </p>
 
                         <p className="mt-1 font-medium text-gray-700">
-                          {
-                            transaction.card_uuid ||
-                            "-"
-                          }
+                          {transaction.card_uuid ||
+                            "-"}
                         </p>
                       </div>
 
@@ -1362,10 +1376,8 @@ export default function TransactionsPage() {
                         </p>
 
                         <p className="mt-1 truncate font-medium text-gray-700">
-                          {
-                            transaction.session_id ||
-                            "-"
-                          }
+                          {transaction.session_id ||
+                            "-"}
                         </p>
                       </div>
 
@@ -1391,10 +1403,8 @@ export default function TransactionsPage() {
                         </p>
 
                         <p className="mt-1 font-medium text-gray-700">
-                          {
-                            transaction.location ||
-                            "-"
-                          }
+                          {transaction.location ||
+                            "-"}
                         </p>
                       </div>
                     </div>

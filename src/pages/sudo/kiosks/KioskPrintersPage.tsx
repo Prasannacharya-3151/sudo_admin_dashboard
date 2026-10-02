@@ -107,7 +107,7 @@ export default function KioskPrintersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [kioskId, accessToken, navigate]);
+  }, [kioskId, navigate]);
 
   useEffect(() => {
     void loadPrinters();

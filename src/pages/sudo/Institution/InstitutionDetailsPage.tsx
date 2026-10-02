@@ -791,7 +791,6 @@ export default function InstitutionDetailsPage() {
   useEffect(() => {
     void loadInstitution();
   }, [
-    accessToken,
     institutionId,
   ]);
 
@@ -808,7 +807,6 @@ export default function InstitutionDetailsPage() {
     }
   }, [
     activeTab,
-    accessToken,
     institutionId,
   ]);
 

@@ -132,11 +132,6 @@ export default function KiosksPage() {
   const navigate = useNavigate();
 
   const { accessToken } = useSudoAuth();
-
-  // ==========================================
-  // STATES
-  // ==========================================
-
   const [kiosks, setKiosks] = useState<Kiosk[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
