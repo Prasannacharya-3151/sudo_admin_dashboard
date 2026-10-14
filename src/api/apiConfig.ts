@@ -1,18 +1,18 @@
 
 export const SUDO_API_BASE_URL =
-  "print-point-server-production-1780.up.railway.app/api/v1";
+  "https://print-point-server-production-1780.up.railway.app/api/v1";
 
 
 
 
 
 //testing url
-// export const RFID_API_BASE_URL =
-//   "https://cashless-campus.onrender.com";
+export const RFID_API_BASE_URL =
+  "https://cashless-campus.onrender.com";
 
 
 
 
 //production url
-export const RFID_API_BASE_URL = "https://cashless-campus-production.onrender.com";
+// export const RFID_API_BASE_URL = "https://cashless-campus-production.onrender.com";
 
