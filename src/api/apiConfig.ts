@@ -1,6 +1,6 @@
 
 export const SUDO_API_BASE_URL =
-  "https://print-point-server-production.up.railway.app/api/v1";
+  "print-point-server-production-1780.up.railway.app/api/v1";
 
 
 
