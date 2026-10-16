@@ -4,7 +4,6 @@ import {
   Loader2,
   CreditCard,
   Monitor,
-  Plus,
   IndianRupee,
   Building2,
   Bluetooth,
