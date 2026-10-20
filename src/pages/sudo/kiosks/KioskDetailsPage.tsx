@@ -3,11 +3,14 @@ import {
   ArrowLeft,
   Building2,
   CreditCard,
+  FileText,
+  IndianRupee,
   Loader2,
   MapPin,
   Monitor,
   Pencil,
   Plus,
+  Power,
   Printer,
   RefreshCw,
   Save,
@@ -24,13 +27,16 @@ import { useSudoAuth } from "../../../context/SudoAuthContext";
 import { getInstitutionById } from "../../../api/institutionApi";
 import {
   addKioskPrinter,
+  createKioskPaperPricing,
   createKioskPricing,
   deactivateKioskPricing,
   deleteKiosk,
   getKioskById,
+  getKioskPaperPricing,
   removeKioskPrinter,
   unpairKiosk,
   updateKioskCapabilities,
+  updateKioskPaperPricing,
   updateKioskPricing,
 } from "../../../api/kioskApi";
 import type {
@@ -39,6 +45,7 @@ import type {
   KioskCapabilities,
   KioskDetails,
   KioskPricing,
+  PaperPricing,
   PaperSize,
   PrintMode,
   PrintingSide,
@@ -298,6 +305,18 @@ export default function KioskDetailsPage() {
     printing_side: "SIMPLEX",
     price_per_sheet: 0,
   });
+
+  // blank A4 sheet pricing (popup)
+  const [paperModalOpen, setPaperModalOpen] = useState(false);
+  const [paperPricing, setPaperPricing] = useState<PaperPricing | null>(
+    null,
+  );
+  const [paperPriceDraft, setPaperPriceDraft] = useState("");
+  const [paperLoading, setPaperLoading] = useState(false);
+  const [paperSaving, setPaperSaving] = useState(false);
+  const [paperToggling, setPaperToggling] = useState(false);
+
+  const paperBusy = paperSaving || paperToggling;
 
   // printers
   const [isAddingPrinter, setIsAddingPrinter] = useState(false);
@@ -587,6 +606,155 @@ export default function KioskDetailsPage() {
           ? error.message
           : "Failed to update price",
       );
+    }
+  };
+
+  // ==========================================
+  // BLANK A4 SHEET PRICING (popup)
+  // ==========================================
+
+  const loadPaperPricing = async () => {
+    if (!kioskId || !accessToken) return;
+
+    try {
+      setPaperLoading(true);
+
+      const rows = await getKioskPaperPricing(accessToken, kioskId);
+
+      // Only the A4 entry is used for blank-sheet pricing.
+      const a4Rows = rows.filter(
+        (row) => row.paper_size?.toUpperCase() === "A4",
+      );
+
+      const selected =
+        a4Rows.find((row) => row.active) ?? a4Rows[0] ?? null;
+
+      setPaperPricing(selected);
+      setPaperPriceDraft(
+        selected ? String(selected.price_per_sheet) : "",
+      );
+    } catch (error) {
+      console.error("Failed to load blank A4 sheet pricing:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to load blank A4 sheet price",
+      );
+    } finally {
+      setPaperLoading(false);
+    }
+  };
+
+  const openPaperModal = () => {
+    setPaperModalOpen(true);
+    void loadPaperPricing();
+  };
+
+  const closePaperModal = useCallback(() => {
+    if (paperBusy) return;
+    setPaperModalOpen(false);
+  }, [paperBusy]);
+
+  useEffect(() => {
+    if (!paperModalOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePaperModal();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [paperModalOpen, closePaperModal]);
+
+  const handleSavePaperPrice = async () => {
+    if (!kioskId || !accessToken) return;
+
+    const rawPrice = paperPriceDraft.trim();
+    const price = Number(rawPrice);
+
+    if (rawPrice === "" || !Number.isFinite(price) || price <= 0) {
+      toast.error("Enter a blank A4 sheet price greater than zero");
+      return;
+    }
+
+    try {
+      setPaperSaving(true);
+
+      if (paperPricing) {
+        const updated = await updateKioskPaperPricing(
+          accessToken,
+          kioskId,
+          paperPricing.id,
+          { price_per_sheet: price },
+        );
+
+        setPaperPricing(updated);
+        setPaperPriceDraft(String(updated.price_per_sheet));
+      } else {
+        // Blank-sheet pricing has no print mode or printing side.
+        const created = await createKioskPaperPricing(
+          accessToken,
+          kioskId,
+          {
+            paper_size: "A4",
+            price_per_sheet: price,
+          },
+        );
+
+        setPaperPricing(created);
+        setPaperPriceDraft(String(created.price_per_sheet));
+      }
+
+      toast.success("Blank A4 sheet price saved");
+      setPaperModalOpen(false);
+    } catch (error) {
+      console.error("Failed to save blank A4 sheet price:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save blank A4 sheet price",
+      );
+    } finally {
+      setPaperSaving(false);
+    }
+  };
+
+  const handleTogglePaperPrice = async () => {
+    if (!kioskId || !accessToken || !paperPricing) {
+      toast.error("Blank A4 sheet pricing was not found");
+      return;
+    }
+
+    try {
+      setPaperToggling(true);
+
+      const updated = await updateKioskPaperPricing(
+        accessToken,
+        kioskId,
+        paperPricing.id,
+        { active: !paperPricing.active },
+      );
+
+      setPaperPricing(updated);
+
+      toast.success(
+        updated.active
+          ? "Blank A4 sheet price activated"
+          : "Blank A4 sheet price deactivated",
+      );
+    } catch (error) {
+      console.error("Failed to change blank A4 price status:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update blank A4 price status",
+      );
+    } finally {
+      setPaperToggling(false);
     }
   };
 
@@ -1107,14 +1275,26 @@ export default function KioskDetailsPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsAddingPricing(true)}
-              className={primaryBtn}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Pricing Row
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* BLANK A4 SHEET PRICE — opens popup */}
+              <button
+                type="button"
+                onClick={openPaperModal}
+                className={outlineBtn}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Blank A4 Price
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAddingPricing(true)}
+                className={primaryBtn}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Pricing Row
+              </button>
+            </div>
           </div>
 
           {isAddingPricing && (
@@ -1585,6 +1765,170 @@ export default function KioskDetailsPage() {
               <p className="break-all text-center font-mono text-base font-bold tracking-wider text-slate-900">
                 {kiosk.pairing_code || "Not available"}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BLANK A4 SHEET PRICE POPUP */}
+      {paperModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="blank-a4-title"
+        >
+          {/* Backdrop */}
+          <button
+            type="button"
+            aria-label="Cancel"
+            onClick={closePaperModal}
+            className="absolute inset-0 cursor-default bg-slate-900/50 backdrop-blur-sm"
+          />
+
+          {/* Dialog */}
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+            <button
+              type="button"
+              onClick={closePaperModal}
+              disabled={paperBusy}
+              className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            
+
+            <h2
+              id="blank-a4-title"
+              className="mt-4 text-sm font-bold text-slate-900"
+            >
+              Blank A4 Sheet Price
+            </h2>
+
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+              Price for one blank A4 sheet. This is separate from
+              black-and-white and color printing.
+            </p>
+
+            <div className="mt-5">
+              {paperLoading ? (
+                <div className="flex items-center gap-3 py-3 text-xs text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand-purple" />
+                  Loading blank-sheet price...
+                </div>
+              ) : (
+                <>
+                  <div className="mb-1.5 flex items-center justify-between gap-3">
+                    <label
+                      htmlFor="blank-a4-price"
+                      className="px-1 text-xs font-semibold text-slate-700"
+                    >
+                      A4 · Price per blank sheet (₹)
+                    </label>
+
+                    {paperPricing && (
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                          paperPricing.active
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {paperPricing.active ? "Active" : "Inactive"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <IndianRupee className="absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+
+                    <input
+                      id="blank-a4-price"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      autoFocus
+                      value={paperPriceDraft}
+                      onChange={(e) =>
+                        setPaperPriceDraft(e.target.value)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !paperBusy) {
+                          void handleSavePaperPrice();
+                        }
+                      }}
+                      disabled={paperBusy}
+                      placeholder="Price per blank A4 sheet"
+                      className="h-10 w-full rounded-full border border-slate-200 bg-white pl-10 pr-4 text-xs text-slate-800 outline-none transition focus:border-brand-purple disabled:bg-slate-50"
+                    />
+                  </div>
+
+                  {!paperPricing && (
+                    <p className="mt-2 px-1 text-[11px] text-slate-500">
+                      No blank A4 sheet price has been configured yet.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              {paperPricing && !paperLoading ? (
+                <button
+                  type="button"
+                  onClick={() => void handleTogglePaperPrice()}
+                  disabled={paperBusy}
+                  className={`inline-flex h-9 items-center justify-center gap-2 rounded-full border px-4 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    paperPricing.active
+                      ? "border-red-200 text-red-600 hover:bg-red-50"
+                      : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  }`}
+                >
+                  {paperToggling ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Power className="h-3.5 w-3.5" />
+                  )}
+
+                  {paperPricing.active ? "Deactivate" : "Activate"}
+                </button>
+              ) : (
+                <span />
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closePaperModal}
+                  disabled={paperBusy}
+                  className={outlineBtn}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSavePaperPrice()}
+                  disabled={paperBusy || paperLoading}
+                  className={primaryBtn}
+                >
+                  {paperSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : paperPricing ? (
+                    <Save className="h-3.5 w-3.5" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+
+                  {paperSaving
+                    ? "Saving..."
+                    : paperPricing
+                      ? "Save Price"
+                      : "Add Price"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

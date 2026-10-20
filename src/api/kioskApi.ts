@@ -21,6 +21,9 @@ import type {
   KioskListFilters,
   KioskPairingStatusResponse,
   AdminPairKioskPayload,
+  PaperPricing,
+  CreatePaperPricingPayload,
+  UpdatePaperPricingPayload,
 } from "../types/kiosk";
 
 // ==========================================
@@ -239,6 +242,82 @@ export const deactivateKioskPricing = async (
 
   if (!response.ok) throw new Error(await getErrorMessage(response));
 };
+
+// GET /sudo-admin/kiosks/{kioskId}/paper-pricing
+export const getKioskPaperPricing = async (
+  accessToken: string,
+  kioskId: string,
+): Promise<PaperPricing[]> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/paper-pricing`,
+    {
+      method: "GET",
+      headers: authHeaders(accessToken),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response));
+  }
+
+  const result = await response.json();
+  const data = unwrapResponse<PaperPricing[] | null>(result);
+
+  // Backend may return null for an empty list
+  return Array.isArray(data) ? data : [];
+};
+
+// POST /sudo-admin/kiosks/{kioskId}/paper-pricing
+export const createKioskPaperPricing = async (
+  accessToken: string,
+  kioskId: string,
+  payload: CreatePaperPricingPayload,
+): Promise<PaperPricing> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/paper-pricing`,
+    {
+      method: "POST",
+      headers: authHeaders(accessToken),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response));
+  }
+
+  const result: ApiResponse<PaperPricing> | PaperPricing =
+    await response.json();
+
+  return unwrapResponse<PaperPricing>(result);
+};
+
+// PATCH /sudo-admin/kiosks/{kioskId}/paper-pricing/{pricingId}
+export const updateKioskPaperPricing = async (
+  accessToken: string,
+  kioskId: string,
+  pricingId: string,
+  payload: UpdatePaperPricingPayload,
+): Promise<PaperPricing> => {
+  const response = await fetch(
+    `${SUDO_API_BASE_URL}/sudo-admin/kiosks/${kioskId}/paper-pricing/${pricingId}`,
+    {
+      method: "PATCH",
+      headers: authHeaders(accessToken),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response));
+  }
+
+  const result: ApiResponse<PaperPricing> | PaperPricing =
+    await response.json();
+
+  return unwrapResponse<PaperPricing>(result);
+};
+
 
 // ==========================================
 // PRINTERS

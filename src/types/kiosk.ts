@@ -218,3 +218,23 @@ export interface KioskListFilters {
   institution_id?: string;
   paired?: boolean;
 }
+
+
+// SIMPLE PAPER PRICING
+
+export interface PaperPricing {
+  id: string;
+  paper_size: string;
+  price_per_sheet: number;
+  active: boolean;
+}
+
+export interface CreatePaperPricingPayload {
+  paper_size: PaperSize;
+  price_per_sheet: number;
+}
+
+export interface UpdatePaperPricingPayload {
+  price_per_sheet?: number;
+  active?: boolean;
+}
