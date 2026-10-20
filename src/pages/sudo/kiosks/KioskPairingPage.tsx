@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,12 +13,12 @@ import {
   Wifi,
 } from "lucide-react";
 import { toast } from "sonner";
-
 import { useSudoAuth } from "../../../context/SudoAuthContext";
 import {
   adminPairKiosk,
   getKioskById,
   getKioskPairingStatus,
+  getKiosks,
   unpairKiosk,
 } from "../../../api/kioskApi";
 import type {
@@ -32,18 +32,17 @@ import type {
 // ==========================================
 
 // Returns the first value that is NOT undefined.
-// `null` is a real value (e.g. device_id: null after unpair) and is kept,
-// so the server can actually clear a field.
+// null is a real value and must be preserved after unpairing.
 function pick<T>(...values: (T | undefined)[]): T | undefined {
   for (const value of values) {
     if (value !== undefined) return value;
   }
+
   return undefined;
 }
 
-// Merge the optional pairing-status response into the kiosk details.
-// Types match KioskDetails: pairing_code?: string, device_id?: string | null,
-// paired_at?: string | null.
+// Merge pairing status into kiosk details without allowing an empty
+// pairing code from the status response to overwrite a valid code.
 function mergePairingStatus(
   base: KioskDetails,
   status: KioskPairingStatusResponse | null | undefined,
@@ -52,9 +51,17 @@ function mergePairingStatus(
 
   return {
     ...base,
-    pairing_code: pick<string>(status.pairing_code, base.pairing_code),
-    device_id: pick<string | null>(status.device_id, base.device_id),
-    paired_at: pick<string | null>(status.paired_at, base.paired_at),
+    pairing_code: status.pairing_code?.trim()
+      ? status.pairing_code
+      : base.pairing_code,
+    device_id: pick<string | null>(
+      status.device_id,
+      base.device_id,
+    ),
+    paired_at: pick<string | null>(
+      status.paired_at,
+      base.paired_at,
+    ),
   };
 }
 
@@ -67,6 +74,11 @@ export default function KioskPairingPage() {
   const { kioskId } = useParams<{ kioskId: string }>();
   const { accessToken } = useSudoAuth();
 
+  // Always access the latest token without making token rotation
+  // itself trigger another request.
+  const accessTokenRef = useRef(accessToken);
+  accessTokenRef.current = accessToken;
+
   const [kiosk, setKiosk] = useState<KioskDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPairing, setIsPairing] = useState(false);
@@ -77,9 +89,7 @@ export default function KioskPairingPage() {
   const [deviceId, setDeviceId] = useState("");
 
   // ==========================================
-  // LOAD
-  // GET /sudo-admin/kiosks/{id}          -> source of truth (KioskDetails)
-  // GET /sudo-admin/kiosks/{id}/pairing  -> optional extra (may not exist yet)
+  // LOAD PAIRING INFORMATION
   // ==========================================
 
   const loadPairingInfo = useCallback(
@@ -89,60 +99,124 @@ export default function KioskPairingPage() {
         return;
       }
 
-      if (!accessToken) {
-        toast.error("Authentication required");
-        navigate("/sudo/login");
+      const token = accessTokenRef.current;
+
+      if (!token) {
+        if (!silent) {
+          setIsLoading(false);
+        }
+
         return;
       }
 
       try {
-        if (!silent) setIsLoading(true);
+        if (!silent) {
+          setIsLoading(true);
+        }
 
-        const details = await getKioskById(accessToken, kioskId);
+        // Primary source: kiosk details.
+        const details = await getKioskById(token, kioskId);
 
+        // Additional source: pairing status endpoint.
         let status: KioskPairingStatusResponse | null = null;
 
         try {
-          status = await getKioskPairingStatus(accessToken, kioskId);
+          status = await getKioskPairingStatus(token, kioskId);
         } catch (pairingError) {
-          // Placeholder endpoint — if it is missing, kiosk details is enough.
-          console.warn("Pairing-status endpoint unavailable; using kiosk details:", pairingError);
+          // Continue using kiosk details if the pairing-status endpoint
+          // is unavailable in the current backend deployment.
+          console.warn(
+            "Pairing-status endpoint unavailable; using kiosk details:",
+            pairingError,
+          );
+        }
+
+        let merged = mergePairingStatus(details, status);
+
+        // Fallback: attempt to obtain the pairing code from the kiosk list
+        // if neither details nor the pairing-status response supplied it.
+        if (!merged.pairing_code?.trim()) {
+          try {
+            const kiosks = await getKiosks();
+
+            const listKiosk = kiosks.find(
+              (item) => item.id === kioskId,
+            );
+
+            if (listKiosk?.pairing_code?.trim()) {
+              merged = {
+                ...merged,
+                pairing_code: listKiosk.pairing_code,
+              };
+            }
+          } catch (listError) {
+            console.warn(
+              "Could not load pairing code from kiosk list:",
+              listError,
+            );
+          }
         }
 
         setKiosk((previous) => {
-          const merged = mergePairingStatus(details, status);
+          // Never reuse pairing information from another kiosk.
+          const sameKiosk =
+            previous?.id === kioskId ? previous : null;
 
-          // If neither endpoint returned a field (undefined), keep what we
-          // already had instead of blanking it.
           return {
             ...merged,
-            pairing_code: pick<string>(merged.pairing_code, previous?.pairing_code),
-            device_id: pick<string | null>(merged.device_id, previous?.device_id),
-            paired_at: pick<string | null>(merged.paired_at, previous?.paired_at),
+
+            pairing_code: merged.pairing_code?.trim()
+              ? merged.pairing_code
+              : sameKiosk?.pairing_code,
+
+            device_id: pick<string | null>(
+              merged.device_id,
+              sameKiosk?.device_id,
+            ),
+
+            paired_at: pick<string | null>(
+              merged.paired_at,
+              sameKiosk?.paired_at,
+            ),
           };
         });
       } catch (error) {
-        console.error("Failed to load kiosk pairing information:", error);
+        console.error(
+          "Failed to load kiosk pairing information:",
+          error,
+        );
+
         toast.error(
-          error instanceof Error ? error.message : "Failed to load kiosk pairing information",
+          error instanceof Error
+            ? error.message
+            : "Failed to load kiosk pairing information",
         );
       } finally {
         setIsLoading(false);
       }
     },
-    [kioskId, navigate],
+    [kioskId],
   );
 
   useEffect(() => {
-    void loadPairingInfo();
-  }, [loadPairingInfo]);
+    // Wait until authentication supplies a token.
+    // Boolean(accessToken) remains true when the token rotates,
+    // so rotation alone will not trigger another fetch.
+    if (accessToken) {
+      void loadPairingInfo();
+    }
+  }, [kioskId, Boolean(accessToken), loadPairingInfo]);
 
   // ==========================================
-  // PAIR — POST /sudo-admin/kiosks/{id}/pair
+  // PAIR DEVICE
+  // POST /sudo-admin/kiosks/{id}/pair
   // ==========================================
 
   const handlePair = async () => {
-    if (!kioskId || !accessToken) return;
+    if (!kioskId || !accessToken) {
+      toast.error("Authentication required");
+      return;
+    }
 
     const cleanPairingCode = pairingCode.trim();
     const cleanDeviceId = deviceId.trim();
@@ -156,37 +230,59 @@ export default function KioskPairingPage() {
       setIsPairing(true);
 
       const payload: AdminPairKioskPayload = {};
-      if (cleanPairingCode) payload.pairing_code = cleanPairingCode;
-      if (cleanDeviceId) payload.device_id = cleanDeviceId;
 
-      const result = await adminPairKiosk(accessToken, kioskId, payload);
+      if (cleanPairingCode) {
+        payload.pairing_code = cleanPairingCode;
+      }
 
-      // Apply the pair response right away so the UI updates even if the
-      // details endpoint doesn't return the pairing fields.
-      setKiosk((previous) => (previous ? mergePairingStatus(previous, result) : previous));
+      if (cleanDeviceId) {
+        payload.device_id = cleanDeviceId;
+      }
+
+      const result = await adminPairKiosk(
+        accessToken,
+        kioskId,
+        payload,
+      );
+
+      // Immediately merge the response into the displayed kiosk.
+      setKiosk((previous) =>
+        previous
+          ? mergePairingStatus(previous, result)
+          : previous,
+      );
 
       setPairingCode("");
       setDeviceId("");
 
       toast.success("Kiosk paired successfully");
 
-      // Then confirm with the server without showing the full-page loader.
+      // Refresh pairing information silently to confirm the server state.
       await loadPairingInfo(true);
     } catch (error) {
       console.error("Failed to pair kiosk:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to pair kiosk");
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to pair kiosk",
+      );
     } finally {
       setIsPairing(false);
     }
   };
 
   // ==========================================
-  // UNPAIR — POST /sudo-admin/kiosks/{id}/unpair
-  // returns { id, pairing_code, unpaired_at }
+  // UNPAIR DEVICE
+  // POST /sudo-admin/kiosks/{id}/unpair
+  // Returns a fresh pairing_code.
   // ==========================================
 
   const handleUnpair = async () => {
-    if (!kioskId || !accessToken) return;
+    if (!kioskId || !accessToken) {
+      toast.error("Authentication required");
+      return;
+    }
 
     const confirmed = window.confirm(
       "Unpair this kiosk device?\n\nThe current device credentials will stop working.",
@@ -197,9 +293,13 @@ export default function KioskPairingPage() {
     try {
       setIsUnpairing(true);
 
-      const result = await unpairKiosk(accessToken, kioskId);
+      const result = await unpairKiosk(
+        accessToken,
+        kioskId,
+      );
 
-      // Use the fresh pairing_code from the response directly.
+      // The unpair endpoint returns the new pairing code.
+      // Display it immediately without waiting for another GET request.
       setKiosk((previous) =>
         previous
           ? {
@@ -214,17 +314,24 @@ export default function KioskPairingPage() {
       setPairingCode("");
       setDeviceId("");
 
-      toast.success("Kiosk unpaired — new pairing code issued");
+      toast.success(
+        "Kiosk unpaired — new pairing code issued",
+      );
     } catch (error) {
       console.error("Failed to unpair kiosk:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to unpair kiosk");
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to unpair kiosk",
+      );
     } finally {
       setIsUnpairing(false);
     }
   };
 
   // ==========================================
-  // COPY
+  // COPY PAIRING CODE
   // ==========================================
 
   const handleCopyCode = async () => {
@@ -237,7 +344,9 @@ export default function KioskPairingPage() {
 
     try {
       await navigator.clipboard.writeText(code);
+
       setCodeCopied(true);
+
       toast.success("Pairing code copied");
 
       window.setTimeout(() => {
@@ -249,7 +358,7 @@ export default function KioskPairingPage() {
   };
 
   // ==========================================
-  // LOADING / NOT FOUND
+  // LOADING
   // ==========================================
 
   if (isLoading) {
@@ -257,17 +366,28 @@ export default function KioskPairingPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
-          <p className="text-xs text-gray-500">Loading pairing status...</p>
+
+          <p className="text-xs text-gray-500">
+            Loading pairing status...
+          </p>
         </div>
       </div>
     );
   }
 
+  // ==========================================
+  // NOT FOUND
+  // ==========================================
+
   if (!kiosk) {
     return (
       <div className="mx-auto w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 text-center">
         <Wifi className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-        <h2 className="text-base font-semibold text-slate-900">Kiosk not found</h2>
+
+        <h2 className="text-base font-semibold text-slate-900">
+          Kiosk not found
+        </h2>
+
         <button
           type="button"
           onClick={() => navigate("/sudo/kiosks")}
@@ -279,9 +399,13 @@ export default function KioskPairingPage() {
     );
   }
 
-  // Same rule as the kiosk details page: paired_at is the source of truth.
+  // paired_at is the source of truth for whether the device is paired.
   const isPaired = Boolean(kiosk.paired_at);
   const isBusy = isPairing || isUnpairing;
+
+  // ==========================================
+  // RENDER
+  // ==========================================
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-8">
@@ -299,8 +423,12 @@ export default function KioskPairingPage() {
         <div>
           <div className="flex items-center gap-2">
             <Wifi className="h-5 w-5 text-brand-purple" />
-            <h1 className="text-lg font-bold leading-tight text-gray-900">Device Pairing</h1>
+
+            <h1 className="text-lg font-bold leading-tight text-gray-900">
+              Device Pairing
+            </h1>
           </div>
+
           <p className="mt-0.5 text-xs text-gray-500">
             Pair or unpair the physical device assigned to this kiosk.
           </p>
@@ -316,7 +444,9 @@ export default function KioskPairingPage() {
             </div>
 
             <div>
-              <p className="text-xs font-medium text-gray-500">Pairing Status</p>
+              <p className="text-xs font-medium text-gray-500">
+                Pairing Status
+              </p>
 
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-gray-900">
@@ -335,6 +465,7 @@ export default function KioskPairingPage() {
                   ) : (
                     <Link2Off className="h-3 w-3" />
                   )}
+
                   {isPaired ? "Connected" : "Not Connected"}
                 </span>
               </div>
@@ -353,6 +484,7 @@ export default function KioskPairingPage() {
               ) : (
                 <Link2Off className="h-3.5 w-3.5" />
               )}
+
               {isUnpairing ? "Unpairing..." : "Unpair Device"}
             </button>
           )}
@@ -364,6 +496,7 @@ export default function KioskPairingPage() {
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 Device ID
               </p>
+
               <p className="mt-1 break-all font-mono text-xs font-semibold text-gray-800">
                 {kiosk.device_id || "—"}
               </p>
@@ -373,8 +506,11 @@ export default function KioskPairingPage() {
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 Paired At
               </p>
+
               <p className="mt-1 text-sm font-semibold text-gray-800">
-                {kiosk.paired_at ? new Date(kiosk.paired_at).toLocaleString() : "—"}
+                {kiosk.paired_at
+                  ? new Date(kiosk.paired_at).toLocaleString()
+                  : "—"}
               </p>
             </div>
           </div>
@@ -389,7 +525,10 @@ export default function KioskPairingPage() {
           </div>
 
           <div>
-            <h2 className="text-sm font-bold text-gray-900">Pairing Code</h2>
+            <h2 className="text-sm font-bold text-gray-900">
+              Pairing Code
+            </h2>
+
             <p className="text-xs text-gray-500">
               {isPaired
                 ? "This code has already been used for the current pairing."
@@ -429,7 +568,10 @@ export default function KioskPairingPage() {
               </div>
 
               <div>
-                <h2 className="text-sm font-bold text-gray-900">Pair Kiosk Device</h2>
+                <h2 className="text-sm font-bold text-gray-900">
+                  Pair Kiosk Device
+                </h2>
+
                 <p className="text-xs text-gray-500">
                   Enter the physical device ID or pairing code.
                 </p>
@@ -442,6 +584,7 @@ export default function KioskPairingPage() {
               <label className="mb-1.5 block px-1 text-xs font-semibold text-gray-700">
                 Device ID
               </label>
+
               <input
                 type="text"
                 value={deviceId}
@@ -454,9 +597,11 @@ export default function KioskPairingPage() {
 
             <div className="flex items-center">
               <div className="flex-1 border-t border-gray-200" />
+
               <span className="px-4 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 OR
               </span>
+
               <div className="flex-1 border-t border-gray-200" />
             </div>
 
@@ -464,10 +609,13 @@ export default function KioskPairingPage() {
               <label className="mb-1.5 block px-1 text-xs font-semibold text-gray-700">
                 Pairing Code
               </label>
+
               <input
                 type="text"
                 value={pairingCode}
-                onChange={(event) => setPairingCode(event.target.value.toUpperCase())}
+                onChange={(event) =>
+                  setPairingCode(event.target.value.toUpperCase())
+                }
                 placeholder="Enter pairing code"
                 disabled={isBusy}
                 className="h-10 w-full rounded-full border border-gray-200 px-5 text-xs uppercase outline-none transition placeholder:normal-case placeholder:text-gray-400 focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10 disabled:bg-gray-50"
@@ -478,7 +626,10 @@ export default function KioskPairingPage() {
               <button
                 type="button"
                 onClick={handlePair}
-                disabled={isBusy || (!deviceId.trim() && !pairingCode.trim())}
+                disabled={
+                  isBusy ||
+                  (!deviceId.trim() && !pairingCode.trim())
+                }
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-brand-purple px-6 text-xs font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPairing ? (
@@ -486,6 +637,7 @@ export default function KioskPairingPage() {
                 ) : (
                   <Link className="h-3.5 w-3.5" />
                 )}
+
                 {isPairing ? "Pairing..." : "Pair Device"}
               </button>
             </div>
@@ -500,10 +652,14 @@ export default function KioskPairingPage() {
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
 
             <div>
-              <h3 className="text-sm font-bold text-green-900">Kiosk device is connected</h3>
+              <h3 className="text-sm font-bold text-green-900">
+                Kiosk device is connected
+              </h3>
+
               <p className="mt-0.5 text-xs text-green-700">
                 The physical device is currently paired with this kiosk. Use{" "}
-                <span className="font-semibold">Unpair Device</span> above if you need to replace it.
+                <span className="font-semibold">Unpair Device</span> above if
+                you need to replace it.
               </p>
             </div>
           </div>
