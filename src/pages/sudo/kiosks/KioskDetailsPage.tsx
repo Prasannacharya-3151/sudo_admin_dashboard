@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Building2,
   CreditCard,
+  ExternalLink,
   FileText,
   IndianRupee,
   Loader2,
@@ -20,7 +21,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useSudoAuth } from "../../../context/SudoAuthContext";
@@ -45,11 +46,11 @@ import type {
   KioskCapabilities,
   KioskDetails,
   KioskPricing,
+  PagesPerSheet,
   PaperPricing,
   PaperSize,
   PrintMode,
   PrintingSide,
-  UpdateKioskCapabilitiesPayload,
 } from "../../../types/kiosk";
 
 // ==========================================
@@ -100,11 +101,37 @@ const capabilityItems: {
     label: "RFID Payment",
     description: "Accept institution RFID cards",
   },
+  {
+    key: "pages_per_sheet_1",
+    label: "1 Page per Sheet",
+    description: "One document page on each sheet",
+  },
+  {
+    key: "pages_per_sheet_2",
+    label: "2 Pages per Sheet",
+    description: "Two document pages on each sheet",
+  },
+  {
+    key: "pages_per_sheet_4",
+    label: "4 Pages per Sheet",
+    description: "Four document pages on each sheet",
+  },
 ];
+
+const defaultCapabilities: KioskCapabilities = {
+  color_printing: false,
+  duplex_printing: false,
+  upi_payment: false,
+  rfid_payment: false,
+  pages_per_sheet_1: false,
+  pages_per_sheet_2: false,
+  pages_per_sheet_4: false,
+};
 
 const paperSizes: PaperSize[] = ["A4", "A3", "LETTER"];
 const printModes: PrintMode[] = ["BW", "COLOR"];
 const printingSides: PrintingSide[] = ["SIMPLEX", "DUPLEX"];
+const pageLayouts: PagesPerSheet[] = [1, 2, 4];
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -117,14 +144,22 @@ const getStatusStyle = (status: string) => {
   }
 };
 
-// FIX: backend may omit `pricing` / `printers` entirely (undefined,
-// not []). Every place we set `kiosk` state runs through this so
-// .length / .map never crash the whole page.
-
+// Backend may omit `pricing` / `printers` / `capabilities`.
+// Every place we set `kiosk` state runs through this so
+// .length / .map never crash the page.
 const normalizeKiosk = (data: KioskDetails): KioskDetails => ({
   ...data,
+  capabilities: { ...defaultCapabilities, ...(data.capabilities ?? {}) },
   pricing: data.pricing ?? [],
   printers: data.printers ?? [],
+});
+
+const emptyNewPricing = (): CreateKioskPricingPayload => ({
+  paper_size: "A4",
+  print_mode: "BW",
+  printing_side: "SIMPLEX",
+  pages_per_sheet: 1,
+  price_per_sheet: 0,
 });
 
 // ==========================================
@@ -275,6 +310,12 @@ export default function KioskDetailsPage() {
   const { kioskId } = useParams<{ kioskId: string }>();
   const { accessToken } = useSudoAuth();
 
+  // Always read the latest token inside callbacks without
+  // re-creating them every time the token rotates.
+  const accessTokenRef = useRef(accessToken);
+  accessTokenRef.current = accessToken;
+  const hasAccessToken = Boolean(accessToken);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -285,26 +326,17 @@ export default function KioskDetailsPage() {
     null,
   );
 
-  // capabilities
-  const [capabilities, setCapabilities] = useState<KioskCapabilities>({
-    color_printing: false,
-    duplex_printing: false,
-    upi_payment: false,
-    rfid_payment: false,
-  });
-
-  const [isSavingCapabilities, setIsSavingCapabilities] = useState(false);
+  // capabilities: the key currently being saved (null = idle)
+  const [savingCapabilityKey, setSavingCapabilityKey] = useState<
+    keyof KioskCapabilities | null
+  >(null);
 
   // pricing
   const [isAddingPricing, setIsAddingPricing] = useState(false);
   const [isSavingPricing, setIsSavingPricing] = useState(false);
 
-  const [newPricing, setNewPricing] = useState<CreateKioskPricingPayload>({
-    paper_size: "A4",
-    print_mode: "BW",
-    printing_side: "SIMPLEX",
-    price_per_sheet: 0,
-  });
+  const [newPricing, setNewPricing] =
+    useState<CreateKioskPricingPayload>(emptyNewPricing());
 
   // blank A4 sheet pricing (popup)
   const [paperModalOpen, setPaperModalOpen] = useState(false);
@@ -361,72 +393,75 @@ export default function KioskDetailsPage() {
   // LOAD
   // ==========================================
 
-  const loadKioskData = useCallback(async () => {
-    if (!kioskId) return;
+  const loadKioskData = useCallback(
+    async (silent = false) => {
+      if (!kioskId) return;
 
-    if (!accessToken) {
-      toast.error("Authentication required");
-      navigate("/sudo/login");
-      return;
-    }
+      const token = accessTokenRef.current;
 
-    try {
-      setIsLoading(true);
-
-      const data = await getKioskById(accessToken, kioskId);
-      const normalized = normalizeKiosk(data);
-
-      setKiosk(normalized);
-      setCapabilities(normalized.capabilities);
-
-      // Reset the previous institution name before resolving the current one.
-      setInstitutionName(null);
-
-      // Institution kiosks display the linked institution's actual name.
-      if (
-        normalized.kiosk_type === "institution" &&
-        normalized.institution_id
-      ) {
-        try {
-          const institution = await getInstitutionById(
-            normalized.institution_id,
-            accessToken,
-          );
-
-          setInstitutionName(institution.name ?? null);
-        } catch (institutionError) {
-          console.error(
-            "Failed to load kiosk institution:",
-            institutionError,
-          );
-
-          setInstitutionName(null);
-        }
+      // Auth context may still be hydrating; the effect below
+      // re-runs once the token is available.
+      if (!token) {
+        setIsLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Failed to load kiosk:", error);
 
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to load kiosk details",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [kioskId, navigate]);
+      try {
+        if (!silent) setIsLoading(true);
 
+        const data = await getKioskById(token, kioskId);
+        const normalized = normalizeKiosk(data);
+
+        setKiosk(normalized);
+
+        // Reset the previous institution name before resolving the current one.
+        setInstitutionName(null);
+
+        if (
+          normalized.kiosk_type === "institution" &&
+          normalized.institution_id
+        ) {
+          try {
+            const institution = await getInstitutionById(
+              normalized.institution_id,
+              token,
+            );
+
+            setInstitutionName(institution.name ?? null);
+          } catch (institutionError) {
+            console.error(
+              "Failed to load kiosk institution:",
+              institutionError,
+            );
+
+            setInstitutionName(null);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load kiosk:", error);
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to load kiosk details",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [kioskId],
+  );
+
+  // Runs when the kiosk changes or when the token first becomes
+  // available. It does NOT refetch when the token merely rotates.
   useEffect(() => {
     void loadKioskData();
-
-    // Intentionally do not refetch just because the auth token rotates.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadKioskData]);
+  }, [loadKioskData, hasAccessToken]);
 
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true);
-      await loadKioskData();
+      await loadKioskData(true);
       toast.success("Kiosk data refreshed");
     } finally {
       setIsRefreshing(false);
@@ -434,42 +469,75 @@ export default function KioskDetailsPage() {
   };
 
   // ==========================================
-  // CAPABILITIES
+  // CAPABILITIES — toggle = instant save
   // ==========================================
 
-  const handleSaveCapabilities = async () => {
-    if (!kioskId || !accessToken) return;
+  const handleToggleCapability = async (
+    key: keyof KioskCapabilities,
+    label: string,
+  ) => {
+    const token = accessTokenRef.current;
+
+    if (!kioskId || !token || !kiosk) {
+      toast.error("Authentication required");
+      return;
+    }
+
+    // One save at a time, so quick clicks can't race each other.
+    if (savingCapabilityKey) return;
+
+    const previousValue = Boolean(kiosk.capabilities[key]);
+    const nextValue = !previousValue;
+
+    // Optimistic update: the switch flips immediately.
+    setKiosk((previous) =>
+      previous
+        ? {
+            ...previous,
+            capabilities: { ...previous.capabilities, [key]: nextValue },
+          }
+        : previous,
+    );
 
     try {
-      setIsSavingCapabilities(true);
+      setSavingCapabilityKey(key);
 
-      const payload: UpdateKioskCapabilitiesPayload = {
-        ...capabilities,
-      };
-
-      const updated = await updateKioskCapabilities(
-        accessToken,
-        kioskId,
-        payload,
-      );
-
-      setCapabilities(updated);
+      // PUT supports partial updates, so only this one key is sent.
+      const updated = await updateKioskCapabilities(token, kioskId, {
+        [key]: nextValue,
+      });
 
       setKiosk((previous) =>
         previous
-          ? { ...previous, capabilities: updated }
+          ? {
+              ...previous,
+              capabilities: { ...defaultCapabilities, ...updated },
+            }
           : previous,
       );
 
-      toast.success("Capabilities updated successfully");
+      toast.success(`${label} ${nextValue ? "enabled" : "disabled"}`);
     } catch (error) {
+      // Roll the switch back if the backend rejected the change.
+      setKiosk((previous) =>
+        previous
+          ? {
+              ...previous,
+              capabilities: {
+                ...previous.capabilities,
+                [key]: previousValue,
+              },
+            }
+          : previous,
+      );
+
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to update capabilities",
+          : `Failed to update ${label}`,
       );
     } finally {
-      setIsSavingCapabilities(false);
+      setSavingCapabilityKey(null);
     }
   };
 
@@ -480,7 +548,10 @@ export default function KioskDetailsPage() {
   const handleAddPricing = async () => {
     if (!kioskId || !accessToken) return;
 
-    if (newPricing.price_per_sheet <= 0) {
+    if (
+      !Number.isFinite(newPricing.price_per_sheet) ||
+      newPricing.price_per_sheet <= 0
+    ) {
       toast.error("Price per sheet must be greater than 0");
       return;
     }
@@ -495,7 +566,6 @@ export default function KioskDetailsPage() {
       );
 
       setKiosk((previous) =>
-        // FIX: guard previous.pricing with ?? [] before spreading
         previous
           ? {
               ...previous,
@@ -505,13 +575,7 @@ export default function KioskDetailsPage() {
       );
 
       setIsAddingPricing(false);
-
-      setNewPricing({
-        paper_size: "A4",
-        print_mode: "BW",
-        printing_side: "SIMPLEX",
-        price_per_sheet: 0,
-      });
+      setNewPricing(emptyNewPricing());
 
       toast.success("Pricing row added");
     } catch (error) {
@@ -785,12 +849,18 @@ export default function KioskDetailsPage() {
         printerForm,
       );
 
+      // A new printer replaces the current default, so clear the
+      // old default flag locally to match the backend.
       setKiosk((previous) =>
-        // FIX: guard previous.printers with ?? [] before spreading
         previous
           ? {
               ...previous,
-              printers: [...(previous.printers ?? []), created],
+              printers: [
+                ...(previous.printers ?? []).map((p) =>
+                  created.is_default ? { ...p, is_default: false } : p,
+                ),
+                created,
+              ],
             }
           : previous,
       );
@@ -826,11 +896,7 @@ export default function KioskDetailsPage() {
       variant: "danger",
       onConfirm: async () => {
         try {
-          await removeKioskPrinter(
-            accessToken,
-            kioskId,
-            printerId,
-          );
+          await removeKioskPrinter(accessToken, kioskId, printerId);
 
           setKiosk((previous) =>
             previous
@@ -887,9 +953,7 @@ export default function KioskDetailsPage() {
               : previous,
           );
 
-          toast.success(
-            "Device unpaired — new pairing code issued",
-          );
+          toast.success("Device unpaired — new pairing code issued");
         } catch (error) {
           toast.error(
             error instanceof Error
@@ -971,6 +1035,7 @@ export default function KioskDetailsPage() {
   }
 
   const isPaired = !!kiosk.paired_at;
+  const capabilities = kiosk.capabilities;
   const pricingRows = kiosk.pricing ?? [];
   const printerRows = kiosk.printers ?? [];
 
@@ -986,6 +1051,7 @@ export default function KioskDetailsPage() {
           <button
             type="button"
             onClick={() => navigate("/sudo/kiosks")}
+            aria-label="Back to kiosks"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -1015,9 +1081,7 @@ export default function KioskDetailsPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() =>
-              navigate(`/sudo/kiosks/${kioskId}/edit`)
-            }
+            onClick={() => navigate(`/sudo/kiosks/${kioskId}/edit`)}
             className={outlineBtn}
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -1026,7 +1090,7 @@ export default function KioskDetailsPage() {
 
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={() => void handleRefresh()}
             disabled={isRefreshing}
             className={outlineBtn}
           >
@@ -1090,6 +1154,15 @@ export default function KioskDetailsPage() {
                 </p>
               </div>
 
+              {/* Kiosk code (permanent, read-only) */}
+              <div>
+                <p className={eyebrowClass}>Kiosk Code</p>
+
+                <p className="mt-1 font-mono text-sm font-semibold tracking-wider text-slate-800">
+                  {kiosk.kiosk_code || "—"}
+                </p>
+              </div>
+
               {/* Institution name or public kiosk name */}
               <div>
                 <p className={eyebrowClass}>
@@ -1104,8 +1177,7 @@ export default function KioskDetailsPage() {
                       <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
 
                       <span>
-                        {institutionName ??
-                          "Institution name unavailable"}
+                        {institutionName ?? "Institution name unavailable"}
                       </span>
                     </>
                   ) : (
@@ -1130,25 +1202,22 @@ export default function KioskDetailsPage() {
                     {kiosk.address_line_2
                       ? `, ${kiosk.address_line_2}`
                       : ""}
-                    , {kiosk.city}, {kiosk.state}, {kiosk.country}{" "}
-                    {kiosk.postal_code
-                      ? `- ${kiosk.postal_code}`
-                      : ""}
+                    , {kiosk.city}, {kiosk.state}, {kiosk.country}
+                    {kiosk.postal_code ? ` - ${kiosk.postal_code}` : ""}
                   </span>
                 </p>
               </div>
 
               {/* Coordinates */}
-              {kiosk.latitude != null &&
-                kiosk.longitude != null && (
-                  <div>
-                    <p className={eyebrowClass}>Coordinates</p>
+              {kiosk.latitude != null && kiosk.longitude != null && (
+                <div>
+                  <p className={eyebrowClass}>Coordinates</p>
 
-                    <p className="mt-1 text-sm font-semibold text-slate-800">
-                      {kiosk.latitude}, {kiosk.longitude}
-                    </p>
-                  </div>
-                )}
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {kiosk.latitude}, {kiosk.longitude}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1185,7 +1254,7 @@ export default function KioskDetailsPage() {
         </div>
       )}
 
-      {/* CAPABILITIES */}
+      {/* CAPABILITIES — each toggle saves instantly */}
       {activeTab === "capabilities" && (
         <div className={`${cardClass} overflow-hidden`}>
           <div className="border-b border-slate-100 px-5 py-3.5">
@@ -1194,68 +1263,62 @@ export default function KioskDetailsPage() {
             </h2>
 
             <p className="mt-0.5 text-xs text-slate-500">
-              Enforced at print time on this kiosk.
+              Enforced at print time on this kiosk. Changes save
+              automatically when you flip a toggle.
             </p>
           </div>
 
           <div className="p-5">
             <div className="grid gap-3 md:grid-cols-2">
-              {capabilityItems.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-3 rounded-full border border-slate-200 py-3 pl-5 pr-4"
-                >
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      {item.label}
-                    </h3>
+              {capabilityItems.map((item) => {
+                const enabled = Boolean(capabilities[item.key]);
+                const isSavingThis = savingCapabilityKey === item.key;
 
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {item.description}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCapabilities((previous) => ({
-                        ...previous,
-                        [item.key]: !previous[item.key],
-                      }))
-                    }
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
-                      capabilities[item.key]
-                        ? "bg-brand-purple"
-                        : "bg-slate-200"
-                    }`}
+                return (
+                  <div
+                    key={item.key}
+                    className="flex items-center justify-between gap-3 rounded-full border border-slate-200 py-3 pl-5 pr-4"
                   >
-                    <span
-                      className={`absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
-                        capabilities[item.key]
-                          ? "translate-x-[22px]"
-                          : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-800">
+                        {item.label}
+                      </h3>
 
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={handleSaveCapabilities}
-                disabled={isSavingCapabilities}
-                className={primaryBtn}
-              >
-                {isSavingCapabilities ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {item.description}
+                      </p>
+                    </div>
 
-                Save Capabilities
-              </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {isSavingThis && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-purple" />
+                      )}
+
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={enabled}
+                        aria-label={item.label}
+                        disabled={savingCapabilityKey !== null}
+                        onClick={() =>
+                          void handleToggleCapability(item.key, item.label)
+                        }
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                          enabled ? "bg-brand-purple" : "bg-slate-200"
+                        }`}
+                      >
+                        <span
+                          className={`absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                            enabled
+                              ? "translate-x-[22px]"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1271,12 +1334,22 @@ export default function KioskDetailsPage() {
               </h2>
 
               <p className="mt-0.5 text-xs text-slate-500">
-                One row per paper size + mode + side combination.
+                One row per paper size + mode + side + pages per sheet.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* BLANK A4 SHEET PRICE — opens popup */}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/sudo/kiosks/${kioskId}/pricing`)
+                }
+                className={outlineBtn}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Pricing Grid
+              </button>
+
               <button
                 type="button"
                 onClick={openPaperModal}
@@ -1303,7 +1376,7 @@ export default function KioskDetailsPage() {
                 New Pricing Row
               </h3>
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-5">
                 <div>
                   <label className={labelClass}>Paper Size</label>
 
@@ -1368,6 +1441,29 @@ export default function KioskDetailsPage() {
                 </div>
 
                 <div>
+                  <label className={labelClass}>Pages / Sheet</label>
+
+                  <select
+                    value={newPricing.pages_per_sheet ?? 1}
+                    onChange={(e) =>
+                      setNewPricing((p) => ({
+                        ...p,
+                        pages_per_sheet: Number(
+                          e.target.value,
+                        ) as PagesPerSheet,
+                      }))
+                    }
+                    className={inputClass}
+                  >
+                    {pageLayouts.map((pages) => (
+                      <option key={pages} value={pages}>
+                        {pages}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className={labelClass}>Price / Sheet (₹)</label>
 
                   <input
@@ -1389,7 +1485,10 @@ export default function KioskDetailsPage() {
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsAddingPricing(false)}
+                  onClick={() => {
+                    setIsAddingPricing(false);
+                    setNewPricing(emptyNewPricing());
+                  }}
                   className={outlineBtn}
                 >
                   Cancel
@@ -1397,7 +1496,7 @@ export default function KioskDetailsPage() {
 
                 <button
                   type="button"
-                  onClick={handleAddPricing}
+                  onClick={() => void handleAddPricing()}
                   disabled={isSavingPricing}
                   className={primaryBtn}
                 >
@@ -1419,11 +1518,10 @@ export default function KioskDetailsPage() {
                     <th className="px-5 py-2.5">Paper</th>
                     <th className="px-5 py-2.5">Mode</th>
                     <th className="px-5 py-2.5">Side</th>
+                    <th className="px-5 py-2.5">Pages / Sheet</th>
                     <th className="px-5 py-2.5">Price / Sheet</th>
                     <th className="px-5 py-2.5">Status</th>
-                    <th className="px-5 py-2.5 text-right">
-                      Actions
-                    </th>
+                    <th className="px-5 py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
 
@@ -1431,7 +1529,7 @@ export default function KioskDetailsPage() {
                   {pricingRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="px-5 py-6 text-center text-slate-500"
                       >
                         No pricing rows yet.
@@ -1452,8 +1550,13 @@ export default function KioskDetailsPage() {
                           {row.printing_side}
                         </td>
 
+                        <td className="px-5 py-3 text-slate-600">
+                          {row.pages_per_sheet ?? 1}
+                        </td>
+
                         <td className="px-5 py-3">
                           <input
+                            key={`${row.id}-${row.price_per_sheet}`}
                             type="number"
                             min="0.01"
                             step="0.01"
@@ -1462,10 +1565,11 @@ export default function KioskDetailsPage() {
                               const val = Number(e.target.value);
 
                               if (
+                                Number.isFinite(val) &&
                                 val !== row.price_per_sheet &&
                                 val > 0
                               ) {
-                                handleUpdatePricingAmount(row, val);
+                                void handleUpdatePricingAmount(row, val);
                               }
                             }}
                             className="h-8 w-24 rounded-full border border-slate-200 px-3 text-xs outline-none transition focus:border-brand-purple"
@@ -1488,7 +1592,7 @@ export default function KioskDetailsPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              handleTogglePricingActive(row)
+                              void handleTogglePricingActive(row)
                             }
                             className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-brand-purple transition hover:bg-purple-50"
                           >
@@ -1510,9 +1614,7 @@ export default function KioskDetailsPage() {
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">
-                Printers
-              </h2>
+              <h2 className="text-sm font-bold text-slate-900">Printers</h2>
 
               <p className="mt-0.5 text-xs text-slate-500">
                 Registering a new printer replaces the current default.
@@ -1596,7 +1698,7 @@ export default function KioskDetailsPage() {
 
                 <button
                   type="button"
-                  onClick={handleAddPrinter}
+                  onClick={() => void handleAddPrinter()}
                   disabled={isSavingPrinter}
                   className={primaryBtn}
                 >
@@ -1666,9 +1768,8 @@ export default function KioskDetailsPage() {
                       {!isRemoved && (
                         <button
                           type="button"
-                          onClick={() =>
-                            handleRemovePrinter(printer.id)
-                          }
+                          aria-label="Remove printer"
+                          onClick={() => handleRemovePrinter(printer.id)}
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-100 text-red-600 transition hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1700,9 +1801,7 @@ export default function KioskDetailsPage() {
 
                   <h2
                     className={`mt-0.5 text-base font-bold ${
-                      isPaired
-                        ? "text-emerald-700"
-                        : "text-slate-500"
+                      isPaired ? "text-emerald-700" : "text-slate-500"
                     }`}
                   >
                     {isPaired ? "Paired" : "Awaiting Pairing"}
@@ -1798,7 +1897,9 @@ export default function KioskDetailsPage() {
               <X className="h-4 w-4" />
             </button>
 
-            
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-50 text-brand-purple">
+              <FileText className="h-5 w-5" />
+            </div>
 
             <h2
               id="blank-a4-title"
@@ -1851,9 +1952,7 @@ export default function KioskDetailsPage() {
                       step="0.01"
                       autoFocus
                       value={paperPriceDraft}
-                      onChange={(e) =>
-                        setPaperPriceDraft(e.target.value)
-                      }
+                      onChange={(e) => setPaperPriceDraft(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !paperBusy) {
                           void handleSavePaperPrice();
@@ -1934,12 +2033,12 @@ export default function KioskDetailsPage() {
         </div>
       )}
 
-      {/* CONFIRM DIALOG — replaces window.confirm() for delete / unpair / remove printer */}
+      {/* CONFIRM DIALOG — delete / unpair / remove printer */}
       <ConfirmDialog
         state={confirmDialog}
         isSubmitting={isConfirmSubmitting}
         onCancel={closeConfirmDialog}
-        onConfirm={handleConfirmAction}
+        onConfirm={() => void handleConfirmAction()}
       />
     </div>
   );

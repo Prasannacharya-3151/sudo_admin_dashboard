@@ -1,14 +1,14 @@
-// ==========================================
+// ============================================================
 // COMMON API RESPONSE
-// ==========================================
+// ============================================================
 
 export interface ApiResponse<T> {
   data: T;
 }
 
-// ==========================================
-// ENUMS
-// ==========================================
+// ============================================================
+// ENUMS / UNION TYPES
+// ============================================================
 
 export type KioskType = "institution" | "public";
 
@@ -18,223 +18,416 @@ export type PrintMode = "BW" | "COLOR";
 
 export type PrintingSide = "SIMPLEX" | "DUPLEX";
 
-// ==========================================
-// KIOSK (base object — register response / list rows)
-// ==========================================
+/**
+ * Number of document pages printed on one physical sheet.
+ *
+ * 1 = one page per sheet
+ * 2 = two pages per sheet
+ * 4 = four pages per sheet
+ */
+export type PagesPerSheet = 1 | 2 | 4;
+
+// ============================================================
+// KIOSK
+// ============================================================
 
 export interface Kiosk {
   id: string;
+
+  /** Permanent, immutable, human-readable code (e.g. PP-7K3M9Q). */
+  kiosk_code: string;
+
   institution_id: string | null;
+
   name: string;
+
   kiosk_type: KioskType;
+
   address_line_1: string;
+
   address_line_2?: string | null;
+
   city: string;
+
   state: string;
+
   country: string;
+
   postal_code?: string | null;
+
   latitude?: number | null;
+
   longitude?: number | null;
+
   pairing_code: string;
+
   device_id: string | null;
+
   paired_at: string | null;
+
   created_at: string;
+
   updated_at: string;
 }
 
-// ==========================================
-// CREATE KIOSK — POST /sudo-admin/kiosks/
-// ==========================================
+// ============================================================
+// CREATE KIOSK PAYLOAD
+// ============================================================
 
 export interface CreateKioskPayload {
-  name: string; // required, <=100 chars
+  name: string;
+
   kiosk_type: KioskType;
-  // required + must exist if kiosk_type === "institution"
-  // must be null if kiosk_type === "public"
+
   institution_id?: string | null;
-  address_line_1: string; // required
+
+  address_line_1: string;
+
   address_line_2?: string | null;
-  city: string; // required, <=100 chars
-  state: string; // required, <=100 chars
-  country: string; // required, <=100 chars
-  postal_code?: string | null; // <=20 chars
+
+  city: string;
+
+  state: string;
+
+  country: string;
+
+  postal_code?: string | null;
+
   latitude?: number | null;
+
   longitude?: number | null;
-  // pairing_code is server-generated — never send it
 }
 
-// ⏳ PATCH /sudo-admin/kiosks/{kioskId} — route not built on backend yet
+// ============================================================
+// UPDATE KIOSK PAYLOAD
+// ============================================================
+
 export interface UpdateKioskPayload {
   name?: string;
+
   kiosk_type?: KioskType;
+
   institution_id?: string | null;
+
   address_line_1?: string;
+
   address_line_2?: string | null;
+
   city?: string;
+
   state?: string;
+
   country?: string;
+
   postal_code?: string | null;
+
   latitude?: number | null;
+
   longitude?: number | null;
 }
 
-// ==========================================
+// ============================================================
 // KIOSK CAPABILITIES
-// ==========================================
+// ============================================================
 
+/**
+ * All supported kiosk capabilities.
+ *
+ * The public GET endpoint should return all seven keys.
+ * Unsupported or missing capabilities should be false.
+ */
 export interface KioskCapabilities {
   color_printing: boolean;
+
   duplex_printing: boolean;
+
   upi_payment: boolean;
+
   rfid_payment: boolean;
+
+  pages_per_sheet_1: boolean;
+
+  pages_per_sheet_2: boolean;
+
+  pages_per_sheet_4: boolean;
 }
 
-// PUT /sudo-admin/kiosks/{kioskId}/capabilities
-// only keys present in the payload are touched; omitted keys keep current value
-export type UpdateKioskCapabilitiesPayload = Partial<KioskCapabilities>;
+/**
+ * PUT /api/v1/sudo-admin/kiosks/{kioskId}/capabilities
+ *
+ * Partial updates are supported.
+ * Only supplied keys should be updated by the backend.
+ */
+export type UpdateKioskCapabilitiesPayload =
+  Partial<KioskCapabilities>;
 
-// ==========================================
-// PRICING (row-based — one row per paper_size + print_mode + printing_side)
-// ==========================================
+// ============================================================
+// KIOSK COMBINATION PRICING
+// ============================================================
 
+/**
+ * A saved pricing combination.
+ *
+ * A unique combination consists of:
+ * paper_size + print_mode + printing_side + pages_per_sheet
+ */
 export interface KioskPricing {
   id: string;
+
   paper_size: PaperSize;
+
   print_mode: PrintMode;
+
   printing_side: PrintingSide;
+
+  pages_per_sheet: PagesPerSheet;
+
   price_per_sheet: number;
+
   active: boolean;
 }
 
-// POST /sudo-admin/kiosks/{kioskId}/pricing
+// ============================================================
+// CREATE KIOSK PRICING PAYLOAD
+// ============================================================
+
+/**
+ * POST /api/v1/sudo-admin/kiosks/{kioskId}/pricing
+ *
+ * pages_per_sheet is optional because the backend defaults
+ * it to 1 when omitted.
+ */
 export interface CreateKioskPricingPayload {
   paper_size: PaperSize;
+
   print_mode: PrintMode;
+
   printing_side: PrintingSide;
-  price_per_sheet: number; // must be > 0
+
+  pages_per_sheet?: PagesPerSheet;
+
+  price_per_sheet: number;
 }
 
-// PATCH /sudo-admin/kiosks/{kioskId}/pricing/{pricingId}
+// ============================================================
+// UPDATE KIOSK PRICING PAYLOAD
+// ============================================================
+
+/**
+ * PATCH /api/v1/sudo-admin/kiosks/{kioskId}/pricing/{pricingId}
+ *
+ * pages_per_sheet is deliberately excluded because the layout
+ * is immutable after the pricing row has been created.
+ */
 export interface UpdateKioskPricingPayload {
-  price_per_sheet?: number; // must be > 0
+  price_per_sheet?: number;
+
   active?: boolean;
 }
 
-// ==========================================
-// PRINTERS
-// ==========================================
+// ============================================================
+// SIMPLE PAPER PRICING
+// ============================================================
 
-export interface KioskPrinter {
+/**
+ * Existing simple paper pricing.
+ *
+ * Kept separate from combination pricing so the existing
+ * blank-sheet/A4 pricing functionality can continue to work.
+ */
+export interface PaperPricing {
   id: string;
-  manufacturer: string;
-  model: string;
-  serial_number: string;
-  is_default: boolean; // server-decided — never sent by client
-  installed_at: string;
-  removed_at: string | null;
+
+  paper_size: string;
+
+  price_per_sheet: number;
+
+  active: boolean;
 }
 
-// POST /sudo-admin/kiosks/{kioskId}/printers
-export interface AddKioskPrinterPayload {
-  manufacturer: string;
-  model: string;
-  serial_number: string;
+// ============================================================
+// CREATE SIMPLE PAPER PRICING PAYLOAD
+// ============================================================
+
+export interface CreatePaperPricingPayload {
+  paper_size: PaperSize;
+
+  price_per_sheet: number;
 }
+
+// ============================================================
+// UPDATE SIMPLE PAPER PRICING PAYLOAD
+// ============================================================
+
+export interface UpdatePaperPricingPayload {
+  price_per_sheet?: number;
+
+  active?: boolean;
+}
+
+// ============================================================
+// KIOSK DETAILS
+// ============================================================
 
 export interface KioskDetails {
   id: string;
+
+  /** Permanent, immutable, human-readable code (e.g. PP-7K3M9Q). */
+  kiosk_code: string;
+
   name: string;
+
   kiosk_type: KioskType;
+
   institution_id: string | null;
+
   address_line_1: string;
+
   address_line_2?: string | null;
+
   city: string;
+
   state: string;
+
   country: string;
+
   postal_code?: string | null;
+
   latitude?: number | null;
+
   longitude?: number | null;
+
   status: string;
-  pairing_code?: string;   // ADDED — confirm with backend
-  device_id?: string | null;  // ADDED
-  paired_at?: string | null;  // ADDED
+
+  pairing_code?: string;
+
+  device_id?: string | null;
+
+  paired_at?: string | null;
+
   capabilities: KioskCapabilities;
+
   pricing: KioskPricing[];
+
   printers: KioskPrinter[];
 }
 
+// ============================================================
+// KIOSK PRINTERS
+// ============================================================
+
+export interface KioskPrinter {
+  id: string;
+
+  manufacturer: string;
+
+  model: string;
+
+  serial_number: string;
+
+  is_default: boolean;
+
+  installed_at: string;
+
+  removed_at: string | null;
+}
+
+// ============================================================
+// ADD KIOSK PRINTER PAYLOAD
+// ============================================================
+
+export interface AddKioskPrinterPayload {
+  manufacturer: string;
+
+  model: string;
+
+  serial_number: string;
+}
+
+// ============================================================
+// KIOSK PAIRING STATUS
+// ============================================================
+
 export interface KioskPairingStatusResponse {
   kiosk_id: string;
+
   pairing_code?: string;
+
   device_id?: string | null;
+
   paired_at?: string | null;
 }
 
+// ============================================================
+// ADMIN PAIR KIOSK PAYLOAD
+// ============================================================
+
 export interface AdminPairKioskPayload {
   pairing_code?: string;
+
   device_id?: string;
 }
 
-// POST /kiosks/pair — NO auth, called by the kiosk desktop app itself
+// ============================================================
+// PAIR KIOSK PAYLOAD
+// ============================================================
+
 export interface PairKioskPayload {
   pairing_code: string;
 }
 
+// ============================================================
+// PAIR KIOSK RESPONSE
+// ============================================================
+
 export interface PairKioskResponse {
   device_id: string;
-  device_secret: string; // returned exactly once, never retrievable again
+
+  device_secret: string;
+
   paired_at: string;
 }
 
-// POST /kiosks/auth — NO auth, called at every kiosk boot
+// ============================================================
+// KIOSK DEVICE AUTHENTICATION PAYLOAD
+// ============================================================
+
 export interface KioskAuthPayload {
   device_id: string;
+
   device_secret: string;
 }
 
+// ============================================================
+// KIOSK DEVICE AUTHENTICATION RESPONSE
+// ============================================================
+
 export interface KioskAuthResponse {
   kiosk_access_token: string;
-  expires_in: number; // seconds (1800 = 30 min)
+
+  expires_in: number;
 }
 
-// POST /sudo-admin/kiosks/{kioskId}/unpair
+// ============================================================
+// UNPAIR KIOSK RESPONSE
+// ============================================================
+
 export interface UnpairKioskResponse {
   id: string;
-  pairing_code: string; // fresh code — show this to the admin to re-pair
+
+  pairing_code: string;
+
   unpaired_at: string;
 }
 
-// There is no dedicated "get pairing status" endpoint — read paired_at /
-// device_id straight off the Kiosk / KioskDetails object instead.
-
-// ==========================================
-// LIST FILTERS — for GET /sudo-admin/kiosks (⏳ not built)
-// while pending, KiosksPage falls back to public GET /kiosk/ and
-// applies these filters client-side
-// ==========================================
+// ============================================================
+// KIOSK LIST FILTERS
+// ============================================================
 
 export interface KioskListFilters {
   kiosk_type?: KioskType;
+
   institution_id?: string;
+
   paired?: boolean;
-}
-
-
-// SIMPLE PAPER PRICING
-
-export interface PaperPricing {
-  id: string;
-  paper_size: string;
-  price_per_sheet: number;
-  active: boolean;
-}
-
-export interface CreatePaperPricingPayload {
-  paper_size: PaperSize;
-  price_per_sheet: number;
-}
-
-export interface UpdatePaperPricingPayload {
-  price_per_sheet?: number;
-  active?: boolean;
 }
