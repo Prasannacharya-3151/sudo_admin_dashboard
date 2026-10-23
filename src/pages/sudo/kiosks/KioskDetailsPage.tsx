@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Building2,
   CreditCard,
-  ExternalLink,
   FileText,
   IndianRupee,
   Loader2,
@@ -161,6 +160,34 @@ const emptyNewPricing = (): CreateKioskPricingPayload => ({
   pages_per_sheet: 1,
   price_per_sheet: 0,
 });
+
+// A pricing combination is unique by
+// paper_size + print_mode + printing_side + pages_per_sheet.
+const pricingComboKey = (combo: {
+  paper_size: PaperSize;
+  print_mode: PrintMode;
+  printing_side: PrintingSide;
+  pages_per_sheet?: PagesPerSheet;
+}): string =>
+  [
+    combo.paper_size,
+    combo.print_mode,
+    combo.printing_side,
+    combo.pages_per_sheet ?? 1,
+  ].join("__");
+
+const layoutCapabilityKey = (
+  pages: PagesPerSheet,
+): keyof KioskCapabilities => {
+  switch (pages) {
+    case 1:
+      return "pages_per_sheet_1";
+    case 2:
+      return "pages_per_sheet_2";
+    case 4:
+      return "pages_per_sheet_4";
+  }
+};
 
 // ==========================================
 // SHARED STYLE TOKENS (classes only)
@@ -545,8 +572,36 @@ export default function KioskDetailsPage() {
   // PRICING
   // ==========================================
 
+  // Same logic as the old pricing grid:
+  //  - the kiosk must support the layout / color / duplex chosen
+  //  - if the combination already exists -> update its price (PATCH)
+  //  - otherwise -> create a new row (POST)
   const handleAddPricing = async () => {
-    if (!kioskId || !accessToken) return;
+    if (!kioskId || !accessToken || !kiosk) return;
+
+    const pages: PagesPerSheet = newPricing.pages_per_sheet ?? 1;
+    const caps = kiosk.capabilities;
+
+    if (!caps[layoutCapabilityKey(pages)]) {
+      toast.error(
+        `${pages} page(s) per sheet is not enabled for this kiosk. Enable it in the Capabilities tab first.`,
+      );
+      return;
+    }
+
+    if (newPricing.print_mode === "COLOR" && !caps.color_printing) {
+      toast.error(
+        "Color printing is disabled. Enable it in the Capabilities tab first.",
+      );
+      return;
+    }
+
+    if (newPricing.printing_side === "DUPLEX" && !caps.duplex_printing) {
+      toast.error(
+        "Duplex printing is disabled. Enable it in the Capabilities tab first.",
+      );
+      return;
+    }
 
     if (
       !Number.isFinite(newPricing.price_per_sheet) ||
@@ -556,33 +611,77 @@ export default function KioskDetailsPage() {
       return;
     }
 
+    const key = pricingComboKey({ ...newPricing, pages_per_sheet: pages });
+
+    // Prefer the active row if historical inactive rows exist.
+    let existing: KioskPricing | undefined;
+
+    for (const row of kiosk.pricing ?? []) {
+      if (pricingComboKey(row) !== key) continue;
+
+      if (!existing || row.active) {
+        existing = row;
+      }
+    }
+
     try {
       setIsSavingPricing(true);
 
-      const created = await createKioskPricing(
-        accessToken,
-        kioskId,
-        newPricing,
-      );
+      if (existing) {
+        const existingRow = existing;
 
-      setKiosk((previous) =>
-        previous
-          ? {
-              ...previous,
-              pricing: [...(previous.pricing ?? []), created],
-            }
-          : previous,
-      );
+        const updated = await updateKioskPricing(
+          accessToken,
+          kioskId,
+          existingRow.id,
+          existingRow.active
+            ? { price_per_sheet: newPricing.price_per_sheet }
+            : {
+                price_per_sheet: newPricing.price_per_sheet,
+                active: true,
+              },
+        );
+
+        setKiosk((previous) =>
+          previous
+            ? {
+                ...previous,
+                pricing: (previous.pricing ?? []).map((p) =>
+                  p.id === updated.id ? updated : p,
+                ),
+              }
+            : previous,
+        );
+
+        toast.success("Pricing already existed — price updated");
+      } else {
+        const created = await createKioskPricing(accessToken, kioskId, {
+          paper_size: newPricing.paper_size,
+          print_mode: newPricing.print_mode,
+          printing_side: newPricing.printing_side,
+          pages_per_sheet: pages,
+          price_per_sheet: newPricing.price_per_sheet,
+        });
+
+        setKiosk((previous) =>
+          previous
+            ? {
+                ...previous,
+                pricing: [...(previous.pricing ?? []), created],
+              }
+            : previous,
+        );
+
+        toast.success("Pricing row added");
+      }
 
       setIsAddingPricing(false);
       setNewPricing(emptyNewPricing());
-
-      toast.success("Pricing row added");
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to add pricing row",
+          : "Failed to save pricing row",
       );
     } finally {
       setIsSavingPricing(false);
@@ -1341,17 +1440,6 @@ export default function KioskDetailsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  navigate(`/sudo/kiosks/${kioskId}/pricing`)
-                }
-                className={outlineBtn}
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Pricing Grid
-              </button>
-
-              <button
-                type="button"
                 onClick={openPaperModal}
                 className={outlineBtn}
               >
@@ -1375,6 +1463,12 @@ export default function KioskDetailsPage() {
               <h3 className="text-sm font-semibold text-slate-900">
                 New Pricing Row
               </h3>
+
+              <p className="mt-0.5 text-xs text-slate-500">
+                If this combination already exists, its price is updated
+                instead of adding a duplicate. Options marked (off) must
+                be enabled in the Capabilities tab first.
+              </p>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-5">
                 <div>
@@ -1411,11 +1505,21 @@ export default function KioskDetailsPage() {
                     }
                     className={inputClass}
                   >
-                    {printModes.map((mode) => (
-                      <option key={mode} value={mode}>
-                        {mode}
-                      </option>
-                    ))}
+                    {printModes.map((mode) => {
+                      const unsupported =
+                        mode === "COLOR" && !capabilities.color_printing;
+
+                      return (
+                        <option
+                          key={mode}
+                          value={mode}
+                          disabled={unsupported}
+                        >
+                          {mode}
+                          {unsupported ? " (off)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1432,11 +1536,21 @@ export default function KioskDetailsPage() {
                     }
                     className={inputClass}
                   >
-                    {printingSides.map((side) => (
-                      <option key={side} value={side}>
-                        {side}
-                      </option>
-                    ))}
+                    {printingSides.map((side) => {
+                      const unsupported =
+                        side === "DUPLEX" && !capabilities.duplex_printing;
+
+                      return (
+                        <option
+                          key={side}
+                          value={side}
+                          disabled={unsupported}
+                        >
+                          {side}
+                          {unsupported ? " (off)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1455,11 +1569,21 @@ export default function KioskDetailsPage() {
                     }
                     className={inputClass}
                   >
-                    {pageLayouts.map((pages) => (
-                      <option key={pages} value={pages}>
-                        {pages}
-                      </option>
-                    ))}
+                    {pageLayouts.map((pages) => {
+                      const unsupported =
+                        !capabilities[layoutCapabilityKey(pages)];
+
+                      return (
+                        <option
+                          key={pages}
+                          value={pages}
+                          disabled={unsupported}
+                        >
+                          {pages}
+                          {unsupported ? " (off)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
