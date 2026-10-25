@@ -45,7 +45,6 @@ import type {
   KioskCapabilities,
   KioskDetails,
   KioskPricing,
-  PagesPerSheet,
   PaperPricing,
   PaperSize,
   PrintMode,
@@ -130,7 +129,6 @@ const defaultCapabilities: KioskCapabilities = {
 const paperSizes: PaperSize[] = ["A4", "A3", "LETTER"];
 const printModes: PrintMode[] = ["BW", "COLOR"];
 const printingSides: PrintingSide[] = ["SIMPLEX", "DUPLEX"];
-const pageLayouts: PagesPerSheet[] = [1, 2, 4];
 
 const getStatusStyle = (status: string) => {
   switch (status) {
@@ -157,37 +155,21 @@ const emptyNewPricing = (): CreateKioskPricingPayload => ({
   paper_size: "A4",
   print_mode: "BW",
   printing_side: "SIMPLEX",
-  pages_per_sheet: 1,
   price_per_sheet: 0,
 });
 
 // A pricing combination is unique by
-// paper_size + print_mode + printing_side + pages_per_sheet.
+// paper_size + print_mode + printing_side.
 const pricingComboKey = (combo: {
   paper_size: PaperSize;
   print_mode: PrintMode;
   printing_side: PrintingSide;
-  pages_per_sheet?: PagesPerSheet;
 }): string =>
   [
     combo.paper_size,
     combo.print_mode,
     combo.printing_side,
-    combo.pages_per_sheet ?? 1,
   ].join("__");
-
-const layoutCapabilityKey = (
-  pages: PagesPerSheet,
-): keyof KioskCapabilities => {
-  switch (pages) {
-    case 1:
-      return "pages_per_sheet_1";
-    case 2:
-      return "pages_per_sheet_2";
-    case 4:
-      return "pages_per_sheet_4";
-  }
-};
 
 // ==========================================
 // SHARED STYLE TOKENS (classes only)
@@ -573,21 +555,13 @@ export default function KioskDetailsPage() {
   // ==========================================
 
   // Same logic as the old pricing grid:
-  //  - the kiosk must support the layout / color / duplex chosen
+  //  - the kiosk must support the color / duplex chosen
   //  - if the combination already exists -> update its price (PATCH)
   //  - otherwise -> create a new row (POST)
   const handleAddPricing = async () => {
     if (!kioskId || !accessToken || !kiosk) return;
 
-    const pages: PagesPerSheet = newPricing.pages_per_sheet ?? 1;
     const caps = kiosk.capabilities;
-
-    if (!caps[layoutCapabilityKey(pages)]) {
-      toast.error(
-        `${pages} page(s) per sheet is not enabled for this kiosk. Enable it in the Capabilities tab first.`,
-      );
-      return;
-    }
 
     if (newPricing.print_mode === "COLOR" && !caps.color_printing) {
       toast.error(
@@ -611,7 +585,7 @@ export default function KioskDetailsPage() {
       return;
     }
 
-    const key = pricingComboKey({ ...newPricing, pages_per_sheet: pages });
+    const key = pricingComboKey(newPricing);
 
     // Prefer the active row if historical inactive rows exist.
     let existing: KioskPricing | undefined;
@@ -653,13 +627,14 @@ export default function KioskDetailsPage() {
             : previous,
         );
 
-        toast.success("Pricing already existed — price updated");
+        toast.success(
+          "A price already exists for this paper size, print mode, and printing side — price updated",
+        );
       } else {
         const created = await createKioskPricing(accessToken, kioskId, {
           paper_size: newPricing.paper_size,
           print_mode: newPricing.print_mode,
           printing_side: newPricing.printing_side,
-          pages_per_sheet: pages,
           price_per_sheet: newPricing.price_per_sheet,
         });
 
@@ -678,11 +653,34 @@ export default function KioskDetailsPage() {
       setIsAddingPricing(false);
       setNewPricing(emptyNewPricing());
     } catch (error) {
-      toast.error(
+      const message =
         error instanceof Error
           ? error.message
-          : "Failed to save pricing row",
-      );
+          : "Failed to save pricing row";
+
+      const status =
+        error instanceof Error
+          ? (error as Error & { status?: number }).status
+          : undefined;
+
+      const isDuplicate =
+        status === 409 ||
+        message.toLowerCase().includes("pricing_combo_exists") ||
+        message.toLowerCase().includes("already has a price");
+
+      if (isDuplicate) {
+        toast.error(
+          "A price already exists for this paper size, print mode, and printing side. Loading the existing row so you can edit it.",
+        );
+
+        // Refresh so the existing three-field combination is
+        // shown in the table instead of being treated as new.
+        await loadKioskData(true);
+        setIsAddingPricing(false);
+        setNewPricing(emptyNewPricing());
+      } else {
+        toast.error(message);
+      }
     } finally {
       setIsSavingPricing(false);
     }
@@ -1433,7 +1431,7 @@ export default function KioskDetailsPage() {
               </h2>
 
               <p className="mt-0.5 text-xs text-slate-500">
-                One row per paper size + mode + side + pages per sheet.
+                One row per paper size + print mode + printing side.
               </p>
             </div>
 
@@ -1465,12 +1463,13 @@ export default function KioskDetailsPage() {
               </h3>
 
               <p className="mt-0.5 text-xs text-slate-500">
-                If this combination already exists, its price is updated
-                instead of adding a duplicate. Options marked (off) must
-                be enabled in the Capabilities tab first.
+                A combination is paper size + print mode + printing side.
+                If it already exists, its price is updated instead of
+                adding a duplicate. Options marked (off) must be enabled
+                in the Capabilities tab first.
               </p>
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
                 <div>
                   <label className={labelClass}>Paper Size</label>
 
@@ -1555,39 +1554,6 @@ export default function KioskDetailsPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Pages / Sheet</label>
-
-                  <select
-                    value={newPricing.pages_per_sheet ?? 1}
-                    onChange={(e) =>
-                      setNewPricing((p) => ({
-                        ...p,
-                        pages_per_sheet: Number(
-                          e.target.value,
-                        ) as PagesPerSheet,
-                      }))
-                    }
-                    className={inputClass}
-                  >
-                    {pageLayouts.map((pages) => {
-                      const unsupported =
-                        !capabilities[layoutCapabilityKey(pages)];
-
-                      return (
-                        <option
-                          key={pages}
-                          value={pages}
-                          disabled={unsupported}
-                        >
-                          {pages}
-                          {unsupported ? " (off)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                <div>
                   <label className={labelClass}>Price / Sheet (₹)</label>
 
                   <input
@@ -1642,7 +1608,6 @@ export default function KioskDetailsPage() {
                     <th className="px-5 py-2.5">Paper</th>
                     <th className="px-5 py-2.5">Mode</th>
                     <th className="px-5 py-2.5">Side</th>
-                    <th className="px-5 py-2.5">Pages / Sheet</th>
                     <th className="px-5 py-2.5">Price / Sheet</th>
                     <th className="px-5 py-2.5">Status</th>
                     <th className="px-5 py-2.5 text-right">Actions</th>
@@ -1653,7 +1618,7 @@ export default function KioskDetailsPage() {
                   {pricingRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={6}
                         className="px-5 py-6 text-center text-slate-500"
                       >
                         No pricing rows yet.
@@ -1672,10 +1637,6 @@ export default function KioskDetailsPage() {
 
                         <td className="px-5 py-3 text-slate-600">
                           {row.printing_side}
-                        </td>
-
-                        <td className="px-5 py-3 text-slate-600">
-                          {row.pages_per_sheet ?? 1}
                         </td>
 
                         <td className="px-5 py-3">

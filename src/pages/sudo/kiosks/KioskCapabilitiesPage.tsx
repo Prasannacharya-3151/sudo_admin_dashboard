@@ -466,7 +466,7 @@ export default function KioskCapabilitiesPage() {
               Page layouts control how many document pages can
               be placed on one physical sheet. The backend
               validates whether the requested layout is enabled
-              when pricing is configured.
+              when a document is printed.
             </p>
           </div>
         </div>
@@ -520,7 +520,8 @@ export default function KioskCapabilitiesPage() {
           ) && (
             <p className="text-sm text-amber-700">
               No page layouts are enabled. Enable at least one
-              layout before configuring its pricing.
+              layout to allow printing at that layout. Pricing no
+              longer depends on page layout.
             </p>
           )}
         </div>

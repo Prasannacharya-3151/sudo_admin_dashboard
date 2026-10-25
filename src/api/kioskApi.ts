@@ -267,7 +267,7 @@ export const updateKioskCapabilities = async (
 
 // GET /kiosks/{kioskId}/pricing
 // Public endpoint — returns active pricing rows.
-// Each row includes pages_per_sheet.
+// Rows are identified by paper size, print mode and printing side.
 export const getPublicKioskPricing = async (
   kioskId: string,
 ): Promise<KioskPricing[]> => {
@@ -295,8 +295,7 @@ export const getPublicKioskPricing = async (
 
 // POST /sudo-admin/kiosks/{kioskId}/pricing
 // Creates a pricing combination.
-// pages_per_sheet can be 1, 2, or 4.
-// If omitted, the backend defaults it to 1.
+// A combination is unique by paper size + print mode + printing side.
 export const createKioskPricing = async (
   accessToken: string,
   kioskId: string,
@@ -312,7 +311,13 @@ export const createKioskPricing = async (
   );
 
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response));
+    const error = new Error(await getErrorMessage(response)) as Error & {
+      status?: number;
+    };
+
+    error.status = response.status;
+
+    throw error;
   }
 
   const result: ApiResponse<KioskPricing> | KioskPricing =
@@ -323,7 +328,6 @@ export const createKioskPricing = async (
 
 // PATCH /sudo-admin/kiosks/{kioskId}/pricing/{pricingId}
 // Updates price and/or active status.
-// Do not include pages_per_sheet: it is immutable.
 export const updateKioskPricing = async (
   accessToken: string,
   kioskId: string,

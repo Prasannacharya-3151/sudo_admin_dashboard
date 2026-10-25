@@ -65,7 +65,6 @@ interface PricingCombo {
   paper_size: PaperSize;
   print_mode: PrintMode;
   printing_side: PrintingSide;
-  pages_per_sheet: PagesPerSheet;
 }
 
 const comboKey = (combo: PricingCombo): string =>
@@ -73,7 +72,6 @@ const comboKey = (combo: PricingCombo): string =>
     combo.paper_size,
     combo.print_mode,
     combo.printing_side,
-    combo.pages_per_sheet,
   ].join("__");
 
 const printModeLabel = (mode: PrintMode): string =>
@@ -156,9 +154,9 @@ export default function KioskPricingPage() {
   // ==========================================================
   // LOOK UP PRICING ROWS
   //
-  // The unique key includes pages_per_sheet.
-  // For example, A4/BW/SIMPLEX/1 and A4/BW/SIMPLEX/2
-  // are separate pricing combinations.
+  // The unique key is paper size + print mode + printing side.
+  // Page layout is a print-time setting and does not affect
+  // pricing.
   // ==========================================================
 
   const rowsByCombo = useMemo(() => {
@@ -169,7 +167,6 @@ export default function KioskPricingPage() {
         paper_size: row.paper_size,
         print_mode: row.print_mode,
         printing_side: row.printing_side,
-        pages_per_sheet: row.pages_per_sheet ?? 1,
       };
 
       const key = comboKey(combo);
@@ -225,7 +222,6 @@ export default function KioskPricingPage() {
           paper_size: row.paper_size,
           print_mode: row.print_mode,
           printing_side: row.printing_side,
-          pages_per_sheet: row.pages_per_sheet ?? 1,
         };
 
         nextDrafts[comboKey(combo)] = String(row.price_per_sheet);
@@ -271,7 +267,7 @@ export default function KioskPricingPage() {
   // POST when the combination does not exist.
   // PATCH when it already exists.
   //
-  // pages_per_sheet is immutable after creation.
+  // The combination is paper size + print mode + printing side.
   // ==========================================================
 
   const handleSaveRow = async (combo: PricingCombo) => {
@@ -281,17 +277,6 @@ export default function KioskPricingPage() {
     }
 
     const key = comboKey(combo);
-
-    const capabilityKey = layoutCapabilityKey(
-      combo.pages_per_sheet,
-    );
-
-    if (!capabilities[capabilityKey]) {
-      toast.error(
-        `${combo.pages_per_sheet} page(s) per sheet is not enabled for this kiosk. Enable it in Kiosk Capabilities first.`,
-      );
-      return;
-    }
 
     if (
       combo.print_mode === "COLOR" &&
@@ -361,7 +346,6 @@ export default function KioskPricingPage() {
             paper_size: combo.paper_size,
             print_mode: combo.print_mode,
             printing_side: combo.printing_side,
-            pages_per_sheet: combo.pages_per_sheet,
             price_per_sheet: price,
           },
         );
@@ -381,11 +365,32 @@ export default function KioskPricingPage() {
     } catch (error) {
       console.error("Failed to save kiosk pricing:", error);
 
-      toast.error(
+      const message =
         error instanceof Error
           ? error.message
-          : "Failed to save kiosk pricing",
-      );
+          : "Failed to save kiosk pricing";
+
+      const status =
+        error instanceof Error
+          ? (error as Error & { status?: number }).status
+          : undefined;
+
+      const isDuplicate =
+        status === 409 ||
+        message.toLowerCase().includes("pricing_combo_exists") ||
+        message.toLowerCase().includes("already has a price");
+
+      if (isDuplicate) {
+        toast.error(
+          "A price already exists for this paper size, print mode, and printing side. Loading the existing row so you can edit it.",
+        );
+
+        // Refresh so the existing three-field combination is
+        // rendered as an editable row instead of a new one.
+        await loadPricing();
+      } else {
+        toast.error(message);
+      }
     } finally {
       setPendingKey(null);
     }
@@ -405,7 +410,6 @@ export default function KioskPricingPage() {
       paper_size: row.paper_size,
       print_mode: row.print_mode,
       printing_side: row.printing_side,
-      pages_per_sheet: row.pages_per_sheet ?? 1,
     };
 
     const key = comboKey(combo);
@@ -674,8 +678,8 @@ export default function KioskPricingPage() {
             </div>
 
             <p className="mt-2 text-sm text-gray-500">
-              Configure pricing by paper size, print mode,
-              printing side, and pages per sheet.
+              Configure one price per paper size, print mode, and
+              printing side.
             </p>
           </div>
         </div>
@@ -695,10 +699,10 @@ export default function KioskPricingPage() {
             </h2>
 
             <p className="mt-1 text-sm leading-6 text-gray-600">
-              Each combination has its own price. For example,
-              A4, Black & White, Single Side, and 2 Pages per
-              Sheet is a different pricing row from the same
-              configuration with 1 Page per Sheet. Enable the
+              Each paper size, print mode, and printing side
+              combination has one price per physical sheet. The
+              selected page layout at print time changes the number
+              of sheets used, not the per-sheet price. Enable the
               required capabilities before creating pricing.
             </p>
           </div>
@@ -795,202 +799,166 @@ export default function KioskPricingPage() {
                 <h3 className="text-base font-bold text-gray-900">
                   {paperSize} Paper
                 </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  One price per print mode and printing side.
+                </p>
               </div>
 
-              {pageLayouts.map((pages) => {
-                const layoutEnabled =
-                  capabilities[layoutCapabilityKey(pages)];
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {printModes.map((printMode) =>
+                  printingSides.map((printingSide) => {
+                    const combo: PricingCombo = {
+                      paper_size: paperSize,
+                      print_mode: printMode,
+                      printing_side: printingSide,
+                    };
 
-                return (
-                  <div
-                    key={`${paperSize}-${pages}`}
-                    className="mb-5 rounded-2xl border border-gray-200 p-4 sm:p-5"
-                  >
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h4 className="font-semibold text-gray-900">
-                          {pages} Page{pages > 1 ? "s" : ""} per Sheet
-                        </h4>
+                    const key = comboKey(combo);
 
-                        <p className="mt-1 text-sm text-gray-500">
-                          {layoutEnabled
-                            ? "Configure the supported print combinations."
-                            : "This layout is disabled in kiosk capabilities."}
-                        </p>
-                      </div>
+                    const existingRow = rowsByCombo[key];
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          layoutEnabled
-                            ? "bg-green-50 text-green-700"
-                            : "bg-gray-100 text-gray-500"
+                    const isPending = pendingKey === key;
+
+                    const colorUnsupported =
+                      printMode === "COLOR" &&
+                      !capabilities.color_printing;
+
+                    const duplexUnsupported =
+                      printingSide === "DUPLEX" &&
+                      !capabilities.duplex_printing;
+
+                    const unsupported =
+                      colorUnsupported ||
+                      duplexUnsupported;
+
+                    return (
+                      <div
+                        key={key}
+                        className={`rounded-xl border p-4 ${
+                          unsupported
+                            ? "border-gray-200 bg-gray-50"
+                            : "border-gray-200 bg-white"
                         }`}
                       >
-                        {layoutEnabled ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
+                        <div className="mb-4 flex items-start justify-between gap-2">
+                          <div>
+                            <h5 className="font-semibold text-gray-900">
+                              {printModeLabel(printMode)}
+                            </h5>
 
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      {printModes.map((printMode) =>
-                        printingSides.map((printingSide) => {
-                          const combo: PricingCombo = {
-                            paper_size: paperSize,
-                            print_mode: printMode,
-                            printing_side: printingSide,
-                            pages_per_sheet: pages,
-                          };
+                            <p className="mt-1 text-sm text-gray-500">
+                              {printingSideLabel(printingSide)}
+                            </p>
+                          </div>
 
-                          const key = comboKey(combo);
-
-                          const existingRow = rowsByCombo[key];
-
-                          const isPending = pendingKey === key;
-
-                          const colorUnsupported =
-                            printMode === "COLOR" &&
-                            !capabilities.color_printing;
-
-                          const duplexUnsupported =
-                            printingSide === "DUPLEX" &&
-                            !capabilities.duplex_printing;
-
-                          const unsupported =
-                            !layoutEnabled ||
-                            colorUnsupported ||
-                            duplexUnsupported;
-
-                          return (
-                            <div
-                              key={key}
-                              className={`rounded-xl border p-4 ${
-                                unsupported
-                                  ? "border-gray-200 bg-gray-50"
-                                  : "border-gray-200 bg-white"
+                          {existingRow && (
+                            <span
+                              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                existingRow.active
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-gray-200 text-gray-600"
                               }`}
                             >
-                              <div className="mb-4 flex items-start justify-between gap-2">
-                                <div>
-                                  <h5 className="font-semibold text-gray-900">
-                                    {printModeLabel(printMode)}
-                                  </h5>
+                              {existingRow.active
+                                ? "Active"
+                                : "Inactive"}
+                            </span>
+                          )}
+                        </div>
 
-                                  <p className="mt-1 text-sm text-gray-500">
-                                    {printingSideLabel(printingSide)}
-                                  </p>
-                                </div>
+                        <label
+                          htmlFor={`price-${key}`}
+                          className="mb-2 block text-xs font-medium text-gray-600"
+                        >
+                          Price per sheet (₹)
+                        </label>
 
-                                {existingRow && (
-                                  <span
-                                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                      existingRow.active
-                                        ? "bg-green-50 text-green-700"
-                                        : "bg-gray-200 text-gray-600"
-                                    }`}
-                                  >
-                                    {existingRow.active
-                                      ? "Active"
-                                      : "Inactive"}
-                                  </span>
-                                )}
-                              </div>
+                        <div className="flex items-center gap-2">
+                          <div className="relative min-w-0 flex-1">
+                            <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
-                              <label
-                                htmlFor={`price-${key}`}
-                                className="mb-2 block text-xs font-medium text-gray-600"
-                              >
-                                Price per sheet (₹)
-                              </label>
+                            <input
+                              id={`price-${key}`}
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={draftPrices[key] ?? ""}
+                              onChange={(event) =>
+                                handleDraftChange(
+                                  combo,
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="0.00"
+                              disabled={isPending}
+                              className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm font-medium text-gray-900 outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10 disabled:bg-gray-100"
+                            />
+                          </div>
 
-                              <div className="flex items-center gap-2">
-                                <div className="relative min-w-0 flex-1">
-                                  <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleSaveRow(combo)
+                            }
+                            disabled={
+                              isPending || unsupported
+                            }
+                            title={
+                              unsupported
+                                ? "Enable the required kiosk capabilities first"
+                                : existingRow
+                                  ? "Save price"
+                                  : "Add price"
+                            }
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-purple text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : existingRow ? (
+                              <Save className="h-4 w-4" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </button>
 
-                                  <input
-                                    id={`price-${key}`}
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={draftPrices[key] ?? ""}
-                                    onChange={(event) =>
-                                      handleDraftChange(
-                                        combo,
-                                        event.target.value,
-                                      )
-                                    }
-                                    placeholder="0.00"
-                                    disabled={isPending}
-                                    className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm font-medium text-gray-900 outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10 disabled:bg-gray-100"
-                                  />
-                                </div>
+                          {existingRow && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleToggleActive(
+                                  existingRow,
+                                )
+                              }
+                              disabled={isPending}
+                              title={
+                                existingRow.active
+                                  ? "Deactivate pricing"
+                                  : "Activate pricing"
+                              }
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                existingRow.active
+                                  ? "border-red-100 text-red-500 hover:bg-red-50"
+                                  : "border-green-100 text-green-700 hover:bg-green-50"
+                              }`}
+                            >
+                              <Power className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void handleSaveRow(combo)
-                                  }
-                                  disabled={
-                                    isPending || unsupported
-                                  }
-                                  title={
-                                    unsupported
-                                      ? "Enable the required kiosk capabilities first"
-                                      : existingRow
-                                        ? "Save price"
-                                        : "Add price"
-                                  }
-                                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-purple text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  {isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : existingRow ? (
-                                    <Save className="h-4 w-4" />
-                                  ) : (
-                                    <Plus className="h-4 w-4" />
-                                  )}
-                                </button>
-
-                                {existingRow && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void handleToggleActive(
-                                        existingRow,
-                                      )
-                                    }
-                                    disabled={isPending}
-                                    title={
-                                      existingRow.active
-                                        ? "Deactivate pricing"
-                                        : "Activate pricing"
-                                    }
-                                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                                      existingRow.active
-                                        ? "border-red-100 text-red-500 hover:bg-red-50"
-                                        : "border-green-100 text-green-700 hover:bg-green-50"
-                                    }`}
-                                  >
-                                    <Power className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </div>
-
-                              {unsupported && (
-                                <p className="mt-3 text-xs leading-5 text-gray-500">
-                                  {colorUnsupported
-                                    ? "Enable Color Printing in capabilities."
-                                    : duplexUnsupported
-                                      ? "Enable Duplex Printing in capabilities."
-                                      : "Enable this page layout in capabilities."}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        }),
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                        {unsupported && (
+                          <p className="mt-3 text-xs leading-5 text-gray-500">
+                            {colorUnsupported
+                              ? "Enable Color Printing in capabilities."
+                              : "Enable Duplex Printing in capabilities."}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }),
+                )}
+              </div>
             </div>
           ))}
         </div>

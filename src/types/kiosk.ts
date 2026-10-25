@@ -169,7 +169,11 @@ export type UpdateKioskCapabilitiesPayload =
  * A saved pricing combination.
  *
  * A unique combination consists of:
- * paper_size + print_mode + printing_side + pages_per_sheet
+ * paper_size + print_mode + printing_side
+ *
+ * The print-time page_layout (1-up / 2-up / 4-up) does not
+ * affect pricing; the same per-sheet price applies to every
+ * supported layout.
  */
 export interface KioskPricing {
   id: string;
@@ -179,8 +183,6 @@ export interface KioskPricing {
   print_mode: PrintMode;
 
   printing_side: PrintingSide;
-
-  pages_per_sheet: PagesPerSheet;
 
   price_per_sheet: number;
 
@@ -194,8 +196,8 @@ export interface KioskPricing {
 /**
  * POST /api/v1/sudo-admin/kiosks/{kioskId}/pricing
  *
- * pages_per_sheet is optional because the backend defaults
- * it to 1 when omitted.
+ * Pricing is uniquely identified by paper size, print mode,
+ * and printing side. Do not send pages_per_sheet.
  */
 export interface CreateKioskPricingPayload {
   paper_size: PaperSize;
@@ -203,8 +205,6 @@ export interface CreateKioskPricingPayload {
   print_mode: PrintMode;
 
   printing_side: PrintingSide;
-
-  pages_per_sheet?: PagesPerSheet;
 
   price_per_sheet: number;
 }
@@ -216,8 +216,7 @@ export interface CreateKioskPricingPayload {
 /**
  * PATCH /api/v1/sudo-admin/kiosks/{kioskId}/pricing/{pricingId}
  *
- * pages_per_sheet is deliberately excluded because the layout
- * is immutable after the pricing row has been created.
+ * Only the price and active status can be changed.
  */
 export interface UpdateKioskPricingPayload {
   price_per_sheet?: number;
