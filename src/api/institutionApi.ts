@@ -9,6 +9,8 @@ import type {
   CreateInstitutionPayload,
   CreateInstitutionAdminPayload,
   UpdateInstitutionPayload,
+  InstitutionUpdateResponse,
+  InstitutionUpdateResult,
 } from "../types/institution";
 
 // ==========================================
@@ -30,6 +32,60 @@ const getErrorMessage = async (
   } catch {
     return `Request failed with status ${response.status}`;
   }
+};
+
+type InstitutionApiError = Error & {
+  status?: number;
+  code?: string;
+};
+
+// Preserve the HTTP status and error code so callers can react
+// to 404 administrator_not_found / 409 administrator_email_taken.
+const buildApiError = async (
+  response: Response,
+): Promise<InstitutionApiError> => {
+  let errorData: {
+    detail?: unknown;
+    message?: unknown;
+    error?: unknown;
+  } | null = null;
+
+  try {
+    errorData = (await response.json()) as {
+      detail?: unknown;
+      message?: unknown;
+      error?: unknown;
+    };
+  } catch {
+    errorData = null;
+  }
+
+  const detail =
+    typeof errorData?.detail === "string"
+      ? errorData.detail
+      : "";
+
+  const message =
+    typeof errorData?.message === "string"
+      ? errorData.message
+      : "";
+
+  const errorCode =
+    typeof errorData?.error === "string"
+      ? errorData.error
+      : "";
+
+  const apiError = new Error(
+    detail ||
+      message ||
+      errorCode ||
+      `Request failed with status ${response.status}`,
+  ) as InstitutionApiError;
+
+  apiError.status = response.status;
+  apiError.code = errorCode || undefined;
+
+  return apiError;
 };
 
 // ==========================================
@@ -143,7 +199,7 @@ export const updateInstitution = async (
   institutionId: string,
   payload: UpdateInstitutionPayload,
   accessToken: string,
-): Promise<Institution> => {
+): Promise<InstitutionUpdateResult> => {
   const response = await fetch(
     `${SUDO_API_BASE_URL}/sudo-admin/institutions/${encodeURIComponent(
       institutionId,
@@ -156,12 +212,10 @@ export const updateInstitution = async (
   );
 
   if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
+    throw await buildApiError(response);
   }
 
-  const result: ApiResponse<Institution> =
+  const result: InstitutionUpdateResponse =
     await response.json();
 
   return result.data;
@@ -246,9 +300,7 @@ export const getInstitutionAdministrator = async (
   );
 
   if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response),
-    );
+    throw await buildApiError(response);
   }
 
   const result: ApiResponse<InstitutionAdministrator> =

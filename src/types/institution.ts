@@ -49,12 +49,18 @@ export interface CreateInstitutionPayload {
 // PATCH /sudo-admin/institutions/:institutionId
 // ==========================================
 
+export interface UpdateInstitutionAdministratorPayload {
+  email?: string;
+  password?: string;
+}
+
 export interface UpdateInstitutionPayload {
   name?: string;
   code?: string;
   status?: InstitutionStatus;
   contact_email?: string;
   contact_phone?: string;
+  administrator?: UpdateInstitutionAdministratorPayload;
 }
 
 // ==========================================
@@ -140,8 +146,19 @@ export type InstitutionListResponse =
 export type InstitutionResponse =
   ApiResponse<InstitutionDetails>;
 
+export type InstitutionUpdateResponse =
+  ApiResponse<InstitutionUpdateResult>;
+
 export type InstitutionStaffResponse =
   ApiResponse<InstitutionStaff>;
 
 export type InstitutionAdministratorResponse =
   ApiResponse<InstitutionAdministrator>;
+
+// PATCH /sudo-admin/institutions/:institutionId
+// The administrator is included only when the request
+// contained an administrator object.
+export interface InstitutionUpdateResult
+  extends Institution {
+  administrator?: InstitutionAdministrator;
+}

@@ -45,6 +45,7 @@ import type {
   InstitutionAdministrator,
   InstitutionDetails,
   InstitutionStatus,
+  UpdateInstitutionAdministratorPayload,
   UpdateInstitutionPayload,
 } from "../../../types/institution";
 
@@ -77,6 +78,41 @@ const statusDot: Record<
   active: "bg-emerald-500",
   suspended: "bg-red-500",
   inactive: "bg-gray-400",
+};
+
+// ==========================================
+// API ERROR HELPERS
+// ==========================================
+
+type ApiErrorLike = Error & {
+  status?: number;
+  code?: string;
+};
+
+const isAdministratorEmailTaken = (
+  error: unknown,
+): boolean => {
+  return (
+    error instanceof Error &&
+    (error as ApiErrorLike).code ===
+      "administrator_email_taken"
+  );
+};
+
+const isAdministratorNotFound = (
+  error: unknown,
+): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const apiError = error as ApiErrorLike;
+
+  return (
+    apiError.code ===
+      "administrator_not_found" ||
+    (!apiError.code && apiError.status === 404)
+  );
 };
 
 // ==========================================
@@ -192,6 +228,8 @@ function FormInput({
   required = false,
   defaultValue,
   minLength,
+  maxLength,
+  autoComplete,
 }: {
   label: string;
   name: string;
@@ -200,6 +238,8 @@ function FormInput({
   required?: boolean;
   defaultValue?: string;
   minLength?: number;
+  maxLength?: number;
+  autoComplete?: string;
 }) {
   return (
     <div>
@@ -213,6 +253,8 @@ function FormInput({
         name={name}
         defaultValue={defaultValue}
         minLength={minLength}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
         placeholder={placeholder}
         className="h-12 w-full rounded-full border border-gray-200 bg-white px-5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
       />
@@ -226,50 +268,148 @@ function FormInput({
 
 function EditInstitutionModal({
   institution,
+  administrator,
+  isAdministratorLoading,
   isSaving,
   onClose,
   onSaved,
 }: {
   institution: InstitutionDetails;
+  administrator: InstitutionAdministrator | null;
+  isAdministratorLoading: boolean;
   isSaving: boolean;
   onClose: () => void;
   onSaved: (
     payload: UpdateInstitutionPayload,
   ) => Promise<void>;
 }) {
+  const [adminEmailError, setAdminEmailError] = useState<
+    string | null
+  >(null);
+
+  const [formError, setFormError] = useState<
+    string | null
+  >(null);
+
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
 
+    setAdminEmailError(null);
+    setFormError(null);
+
     const formData = new FormData(
       event.currentTarget,
     );
 
-    const payload: UpdateInstitutionPayload = {
-      name: String(
-        formData.get("name") || "",
-      ).trim(),
+    const nextName = String(
+      formData.get("name") || "",
+    ).trim();
 
-      code: String(
-        formData.get("code") || "",
-      ).trim(),
+    const nextCode = String(
+      formData.get("code") || "",
+    ).trim();
 
-      status:
-        formData.get(
-          "status",
-        ) as InstitutionStatus,
+    const nextStatus =
+      formData.get(
+        "status",
+      ) as InstitutionStatus;
 
-      contact_email: String(
-        formData.get("contact_email") || "",
-      ).trim(),
+    const nextContactEmail = String(
+      formData.get("contact_email") || "",
+    ).trim();
 
-      contact_phone: String(
-        formData.get("contact_phone") || "",
-      ).trim(),
-    };
+    const nextContactPhone = String(
+      formData.get("contact_phone") || "",
+    ).trim();
 
-    await onSaved(payload);
+    // Send only fields that actually changed.
+    const payload: UpdateInstitutionPayload = {};
+
+    if (nextName !== institution.name) {
+      payload.name = nextName;
+    }
+
+    if (nextCode !== institution.code) {
+      payload.code = nextCode;
+    }
+
+    if (nextStatus !== institution.status) {
+      payload.status = nextStatus;
+    }
+
+    if (
+      nextContactEmail !==
+      institution.contact_email
+    ) {
+      payload.contact_email =
+        nextContactEmail;
+    }
+
+    if (
+      nextContactPhone !==
+      (institution.contact_phone ?? "")
+    ) {
+      payload.contact_phone =
+        nextContactPhone;
+    }
+
+    // Administrator credentials are optional and only
+    // sent when the email changed or a password was entered.
+    const nextAdministratorEmail = String(
+      formData.get("administrator_email") ?? "",
+    ).trim();
+
+    const nextAdministratorPassword = String(
+      formData.get("administrator_password") ?? "",
+    );
+
+    const administratorPayload: UpdateInstitutionAdministratorPayload =
+      {};
+
+    if (
+      administrator &&
+      nextAdministratorEmail &&
+      nextAdministratorEmail.toLowerCase() !==
+        administrator.email.toLowerCase()
+    ) {
+      administratorPayload.email =
+        nextAdministratorEmail;
+    }
+
+    if (nextAdministratorPassword) {
+      administratorPayload.password =
+        nextAdministratorPassword;
+    }
+
+    if (
+      Object.keys(administratorPayload).length >
+      0
+    ) {
+      payload.administrator =
+        administratorPayload;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setFormError("No changes to save.");
+      return;
+    }
+
+    try {
+      await onSaved(payload);
+    } catch (error) {
+      if (
+        isAdministratorEmailTaken(error)
+      ) {
+        const apiError = error as ApiErrorLike;
+
+        setAdminEmailError(
+          apiError.message ||
+            "This email is already in use.",
+        );
+      }
+    }
   };
 
   return (
@@ -308,6 +448,7 @@ function EditInstitutionModal({
               name="name"
               placeholder="Institution name"
               required
+              maxLength={150}
               defaultValue={institution.name}
             />
 
@@ -316,6 +457,7 @@ function EditInstitutionModal({
               name="code"
               placeholder="Institution code"
               required
+              maxLength={50}
               defaultValue={institution.code}
             />
 
@@ -334,6 +476,7 @@ function EditInstitutionModal({
               label="Contact Phone"
               name="contact_phone"
               placeholder="Contact phone"
+              maxLength={20}
               defaultValue={
                 institution.contact_phone ??
                 ""
@@ -370,6 +513,72 @@ function EditInstitutionModal({
               </select>
             </div>
           </div>
+
+          {isAdministratorLoading ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-5 py-4 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading administrator credentials...
+            </div>
+          ) : administrator ? (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple/10 text-brand-purple">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Administrator Credentials
+                  </h3>
+
+                  <p className="mt-1 text-xs leading-5 text-gray-500">
+                    Update the administrator login email or set a new password. Leave the password blank to keep the current one.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <FormInput
+                    label="Administrator Email"
+                    name="administrator_email"
+                    type="email"
+                    placeholder="administrator@college.com"
+                    required
+                    maxLength={255}
+                    autoComplete="email"
+                    defaultValue={administrator.email}
+                  />
+
+                  {adminEmailError && (
+                    <p className="mt-2 px-2 text-xs font-medium text-red-600">
+                      {adminEmailError}
+                    </p>
+                  )}
+                </div>
+
+                <FormInput
+                  label="New Password"
+                  name="administrator_password"
+                  type="password"
+                  placeholder="Leave blank to keep current"
+                  minLength={8}
+                  maxLength={72}
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <p className="mt-3 px-2 text-xs leading-5 text-gray-500">
+                Existing sessions remain valid until they expire.
+              </p>
+            </div>
+          ) : null}
+
+          {formError && (
+            <p className="text-sm font-medium text-red-600">
+              {formError}
+            </p>
+          )}
 
           <div className="flex justify-end gap-3 border-t border-gray-100 pt-6">
             <button
@@ -775,10 +984,14 @@ export default function InstitutionDetailsPage() {
       console.error(error);
 
       /*
-       * If there is no administrator assigned,
-       * keep the card in the empty state.
+       * Only clear the administrator when the API confirms
+       * that none exists. Transient errors should not hide
+       * an existing administrator's credentials in the
+       * edit modal.
        */
-      setAdministrator(null);
+      if (isAdministratorNotFound(error)) {
+        setAdministrator(null);
+      }
     } finally {
       setIsAdministratorLoading(false);
     }
@@ -832,31 +1045,87 @@ export default function InstitutionDetailsPage() {
       try {
         setIsEditSaving(true);
 
-        await updateInstitution(
-          institution.id,
-          payload,
-          accessToken,
+        const updated =
+          await updateInstitution(
+            institution.id,
+            payload,
+            accessToken,
+          );
+
+        const {
+          administrator:
+            updatedAdministrator,
+          ...institutionFields
+        } = updated;
+
+        setInstitution((previous) =>
+          previous
+            ? {
+                ...previous,
+                ...institutionFields,
+              }
+            : previous,
         );
 
+        if (updatedAdministrator) {
+          setAdministrator(
+            updatedAdministrator,
+          );
+        }
+
+        const hasInstitutionChanges =
+          Object.keys(payload).some(
+            (key) => key !== "administrator",
+          );
+
         toast.success(
-          "Institution updated successfully",
+          payload.administrator
+            ? hasInstitutionChanges
+              ? "Institution and administrator updated successfully"
+              : "Administrator credentials updated successfully"
+            : "Institution updated successfully",
         );
 
         setIsEditOpen(false);
-
-        await loadInstitution();
       } catch (error) {
         console.error(error);
 
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to update institution",
-        );
+        if (
+          isAdministratorEmailTaken(error)
+        ) {
+          // The modal shows this inline on the
+          // administrator email field.
+        } else if (
+          isAdministratorNotFound(error)
+        ) {
+          setAdministrator(null);
+
+          toast.error(
+            "This institution has no administrator account to update.",
+          );
+        } else {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Failed to update institution",
+          );
+        }
+
+        // Let the modal keep itself open and surface
+        // field-level errors.
+        throw error;
       } finally {
         setIsEditSaving(false);
       }
     };
+
+  const openEditModal = () => {
+    setIsEditOpen(true);
+
+    // Fetch the administrator fresh so credentials are
+    // current whenever the edit modal is opened.
+    void loadAdministrator();
+  };
 
   // ==========================================
   // ADD ADMINISTRATOR
@@ -1189,9 +1458,7 @@ export default function InstitutionDetailsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() =>
-                setIsEditOpen(true)
-              }
+              onClick={openEditModal}
               className="flex items-center gap-2 rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               <Edit3 className="h-4 w-4" />
@@ -1356,9 +1623,7 @@ export default function InstitutionDetailsPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setIsEditOpen(true)
-                  }
+                  onClick={openEditModal}
                   className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                 >
                   <Edit3 className="h-4 w-4" />
@@ -1716,6 +1981,10 @@ export default function InstitutionDetailsPage() {
         <EditInstitutionModal
           institution={
             institution
+          }
+          administrator={administrator}
+          isAdministratorLoading={
+            isAdministratorLoading
           }
           isSaving={
             isEditSaving
