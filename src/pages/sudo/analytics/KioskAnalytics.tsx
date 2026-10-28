@@ -1,10 +1,12 @@
 import {
   AlertTriangle,
   BarChart3,
+  CalendarDays,
   CheckCircle2,
   CreditCard,
   FileText,
   FileWarning,
+  Filter,
   Loader2,
   Monitor,
   Printer,
@@ -32,6 +34,7 @@ import {
   getKioskPages,
   getKioskStuckJobs,
   getKioskUnprintedDocuments,
+  getKioskSheetsPrintedToday,
 } from "../../../api/kioskanalyticsApi";
 
 import type {
@@ -42,7 +45,21 @@ import type {
   KioskPageAnalytics,
   StuckJob,
   UnprintedDocument,
+  SheetsPrintedResponse,
 } from "../../../types/kioskAnalytics";
+
+import {
+  addDaysIso,
+  buildAnalyticsPeriod,
+  getTodayIso,
+  periodOptions,
+} from "./analyticsPeriod";
+
+import type {
+  AnalyticsPeriod,
+  AnalyticsQuery,
+  PeriodPreset,
+} from "./analyticsPeriod";
 
 // ==========================================
 // COMPONENT
@@ -115,6 +132,37 @@ export default function KioskAnalytics() {
   ] = useState<UnprintedDocument[]>(
     [],
   );
+
+  const [sheetsToday, setSheetsToday] =
+    useState<SheetsPrintedResponse | null>(
+      null,
+    );
+
+  // ========================================
+  // PERIOD FILTER
+  // ========================================
+
+  const [preset, setPreset] =
+    useState<PeriodPreset>("last30");
+
+  const [customDate, setCustomDate] =
+    useState(getTodayIso());
+
+  const [rangeFrom, setRangeFrom] =
+    useState(
+      addDaysIso(getTodayIso(), -6),
+    );
+
+  const [rangeTo, setRangeTo] =
+    useState(getTodayIso());
+
+  const [activePeriod, setActivePeriod] =
+    useState<AnalyticsPeriod>(() =>
+      buildAnalyticsPeriod("last30"),
+    );
+
+  const [filterError, setFilterError] =
+    useState<string | null>(null);
 
   // ========================================
   // LOADING
@@ -197,6 +245,7 @@ export default function KioskAnalytics() {
 
   const fetchAnalytics = async (
     refresh = false,
+    query: AnalyticsQuery = activePeriod.query,
   ) => {
     if (
       !accessToken ||
@@ -212,6 +261,19 @@ export default function KioskAnalytics() {
         setIsLoading(true);
       }
 
+      const sheetsTodayPromise =
+        getKioskSheetsPrintedToday(
+          accessToken,
+          selectedKioskId,
+        ).catch((sheetsError) => {
+          console.error(
+            "Failed to load kiosk sheets printed today:",
+            sheetsError,
+          );
+
+          return null;
+        });
+
       const [
         revenueData,
         bwData,
@@ -221,10 +283,12 @@ export default function KioskAnalytics() {
         pagesData,
         stuckJobsData,
         unprintedData,
+        sheetsTodayData,
       ] = await Promise.all([
         getKioskRevenue(
           accessToken,
           selectedKioskId,
+          query,
         ),
 
         getKioskRevenueByPrintMode(
@@ -266,6 +330,8 @@ export default function KioskAnalytics() {
           accessToken,
           selectedKioskId,
         ),
+
+        sheetsTodayPromise,
       ]);
 
       setRevenue(revenueData);
@@ -285,6 +351,10 @@ export default function KioskAnalytics() {
       setUnprintedDocuments(
         unprintedData,
       );
+
+      if (sheetsTodayData) {
+        setSheetsToday(sheetsTodayData);
+      }
     } catch (error) {
       console.error(
         "Failed to load kiosk analytics:",
@@ -300,6 +370,99 @@ export default function KioskAnalytics() {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  // ========================================
+  // PERIOD ACTIONS
+  // ========================================
+
+  const handlePresetChange = (
+    nextPreset: PeriodPreset,
+  ) => {
+    setPreset(nextPreset);
+    setFilterError(null);
+
+    if (
+      nextPreset === "date" ||
+      nextPreset === "range"
+    ) {
+      return;
+    }
+
+    const nextPeriod =
+      buildAnalyticsPeriod(nextPreset);
+
+    setActivePeriod(nextPeriod);
+
+    if (selectedKioskId) {
+      void fetchAnalytics(
+        true,
+        nextPeriod.query,
+      );
+    }
+  };
+
+  const handleApplyCustomPeriod = () => {
+    setFilterError(null);
+
+    if (preset === "date") {
+      if (!customDate) {
+        setFilterError(
+          "Select a date to continue.",
+        );
+
+        return;
+      }
+
+      const nextPeriod =
+        buildAnalyticsPeriod("date", {
+          date: customDate,
+        });
+
+      setActivePeriod(nextPeriod);
+
+      if (selectedKioskId) {
+        void fetchAnalytics(
+          true,
+          nextPeriod.query,
+        );
+      }
+
+      return;
+    }
+
+    if (preset === "range") {
+      if (!rangeFrom || !rangeTo) {
+        setFilterError(
+          "Select both a start and end date.",
+        );
+
+        return;
+      }
+
+      if (rangeFrom > rangeTo) {
+        setFilterError(
+          "The start date must be on or before the end date.",
+        );
+
+        return;
+      }
+
+      const nextPeriod =
+        buildAnalyticsPeriod("range", {
+          from: rangeFrom,
+          to: rangeTo,
+        });
+
+      setActivePeriod(nextPeriod);
+
+      if (selectedKioskId) {
+        void fetchAnalytics(
+          true,
+          nextPeriod.query,
+        );
+      }
     }
   };
 
@@ -403,6 +566,14 @@ export default function KioskAnalytics() {
         currency: "INR",
         maximumFractionDigits: 2,
       },
+    ).format(Number(value || 0));
+  };
+
+  const formatNumber = (
+    value?: number | null,
+  ) => {
+    return new Intl.NumberFormat(
+      "en-IN",
     ).format(Number(value || 0));
   };
 
@@ -625,11 +796,13 @@ export default function KioskAnalytics() {
 
             <select
               value={selectedKioskId}
-              onChange={(event) =>
+              onChange={(event) => {
+                setSheetsToday(null);
+
                 setSelectedKioskId(
                   event.target.value,
-                )
-              }
+                );
+              }}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-[#1A1426] outline-none transition focus:border-[#7E49F2] focus:ring-2 focus:ring-[#7E49F2]/10"
             >
               {kiosks.map(
@@ -668,6 +841,136 @@ export default function KioskAnalytics() {
       </div>
 
       {/* ======================================
+          PERIOD FILTER
+      ====================================== */}
+
+      <div className="mb-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Period
+              </label>
+
+              <select
+                value={preset}
+                onChange={(event) =>
+                  handlePresetChange(
+                    event.target
+                      .value as PeriodPreset,
+                  )
+                }
+                className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-[#1A1426] outline-none transition focus:border-[#7E49F2] focus:ring-2 focus:ring-[#7E49F2]/10"
+              >
+                {periodOptions.map(
+                  (option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+
+            {preset === "date" && (
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Date
+                </label>
+
+                <input
+                  type="date"
+                  value={customDate}
+                  max={getTodayIso()}
+                  onChange={(event) =>
+                    setCustomDate(
+                      event.target.value,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-[#1A1426] outline-none transition focus:border-[#7E49F2] focus:ring-2 focus:ring-[#7E49F2]/10"
+                />
+              </div>
+            )}
+
+            {preset === "range" && (
+              <>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    From
+                  </label>
+
+                  <input
+                    type="date"
+                    value={rangeFrom}
+                    max={getTodayIso()}
+                    onChange={(event) =>
+                      setRangeFrom(
+                        event.target.value,
+                      )
+                    }
+                    className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-[#1A1426] outline-none transition focus:border-[#7E49F2] focus:ring-2 focus:ring-[#7E49F2]/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    To
+                  </label>
+
+                  <input
+                    type="date"
+                    value={rangeTo}
+                    max={getTodayIso()}
+                    onChange={(event) =>
+                      setRangeTo(
+                        event.target.value,
+                      )
+                    }
+                    className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-[#1A1426] outline-none transition focus:border-[#7E49F2] focus:ring-2 focus:ring-[#7E49F2]/10"
+                  />
+                </div>
+              </>
+            )}
+
+            {(preset === "date" ||
+              preset === "range") && (
+              <button
+                type="button"
+                onClick={
+                  handleApplyCustomPeriod
+                }
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#7E49F2] px-5 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                <Filter className="h-4 w-4" />
+                Apply
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+            <Filter className="h-4 w-4 text-gray-400" />
+
+            <span>
+              Showing{" "}
+              <span className="font-semibold text-[#1A1426]">
+                {activePeriod.label}
+              </span>{" "}
+              · UTC
+            </span>
+          </div>
+        </div>
+
+        {filterError && (
+          <p className="mt-3 text-sm font-medium text-red-600">
+            {filterError}
+          </p>
+        )}
+      </div>
+
+      {/* ======================================
           ANALYTICS LOADING
       ====================================== */}
 
@@ -687,14 +990,14 @@ export default function KioskAnalytics() {
               REVENUE CARDS
           ==================================== */}
 
-          <div className="mb-6 grid gap-5 md:grid-cols-3">
+          <div className="mb-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {/* Revenue */}
 
             <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">
-                    Total Revenue
+                    Revenue
                   </p>
 
                   <p className="mt-3 text-3xl font-bold text-brand-dark">
@@ -708,6 +1011,10 @@ export default function KioskAnalytics() {
                   <TrendingUp className="h-6 w-6" />
                 </div>
               </div>
+
+              <p className="mt-4 text-sm text-gray-500">
+                For {activePeriod.label}
+              </p>
             </div>
 
             {/* Sheets */}
@@ -716,12 +1023,13 @@ export default function KioskAnalytics() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">
-                    Total Sheets
+                    Sheets Printed
                   </p>
 
                   <p className="mt-3 text-3xl font-bold text-brand-dark">
-                    {revenue?.total_sheets ??
-                      0}
+                    {formatNumber(
+                      revenue?.total_sheets,
+                    )}
                   </p>
                 </div>
 
@@ -729,6 +1037,11 @@ export default function KioskAnalytics() {
                   <FileText className="h-6 w-6" />
                 </div>
               </div>
+
+              <p className="mt-4 text-sm text-gray-500">
+                Physical sheets ·{" "}
+                {activePeriod.label}
+              </p>
             </div>
 
             {/* Sessions */}
@@ -741,8 +1054,9 @@ export default function KioskAnalytics() {
                   </p>
 
                   <p className="mt-3 text-3xl font-bold text-[#1A1426]">
-                    {revenue?.sessions ??
-                      0}
+                    {formatNumber(
+                      revenue?.sessions,
+                    )}
                   </p>
                 </div>
 
@@ -750,6 +1064,36 @@ export default function KioskAnalytics() {
                   <Printer className="h-6 w-6" />
                 </div>
               </div>
+
+              <p className="mt-4 text-sm text-gray-500">
+                For {activePeriod.label}
+              </p>
+            </div>
+
+            {/* Sheets Today */}
+
+            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Sheets Printed Today
+                  </p>
+
+                  <p className="mt-3 text-3xl font-bold text-[#1A1426]">
+                    {formatNumber(
+                      sheetsToday?.total_sheets,
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                  <CalendarDays className="h-6 w-6" />
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm text-gray-500">
+                This kiosk · UTC
+              </p>
             </div>
           </div>
 

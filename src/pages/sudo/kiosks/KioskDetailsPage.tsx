@@ -1296,11 +1296,12 @@ export default function KioskDetailsPage() {
 
                   <span>
                     {kiosk.address_line_1}
-                    {kiosk.address_line_2
+                    {/* {kiosk.address_line_2
                       ? `, ${kiosk.address_line_2}`
-                      : ""}
-                    , {kiosk.city}, {kiosk.state}, {kiosk.country}
-                    {kiosk.postal_code ? ` - ${kiosk.postal_code}` : ""}
+                      : ""} */}
+                    , {kiosk.city} 
+                    {/* {kiosk.state} {kiosk.country} */}
+                    {/* {kiosk.postal_code ? ` - ${kiosk.postal_code}` : ""} */}
                   </span>
                 </p>
               </div>

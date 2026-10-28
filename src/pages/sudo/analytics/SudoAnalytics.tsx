@@ -6,7 +6,9 @@ import {
 
 import {
   BarChart3,
+  CalendarDays,
   FileText,
+  Filter,
   Printer,
   TrendingDown,
   TrendingUp,
@@ -19,13 +21,28 @@ import {
   getSudoGrowth,
   getSudoRevenue,
   getSudoRevenueByKiosk,
+  getSudoSheetsPrintedToday,
 } from "../../../api/analyticsApi";
 
 import type {
+  SheetsPrintedResponse,
   SudoGrowthResponse,
   SudoRevenueByKioskResponse,
   SudoRevenueResponse,
 } from "../../../types/sudoAnalytics";
+
+import {
+  addDaysIso,
+  buildAnalyticsPeriod,
+  getTodayIso,
+  periodOptions,
+} from "./analyticsPeriod";
+
+import type {
+  AnalyticsPeriod,
+  AnalyticsQuery,
+  PeriodPreset,
+} from "./analyticsPeriod";
 
 // ==========================================
 // HELPERS
@@ -87,6 +104,11 @@ export default function SudoAnalytics() {
   const [growth, setGrowth] =
     useState<SudoGrowthResponse | null>(null);
 
+  const [sheetsToday, setSheetsToday] =
+    useState<SheetsPrintedResponse | null>(
+      null,
+    );
+
   const [isLoading, setIsLoading] =
     useState(true);
 
@@ -97,11 +119,38 @@ export default function SudoAnalytics() {
     useState<string | null>(null);
 
   // ========================================
+  // PERIOD FILTER
+  // ========================================
+
+  const [preset, setPreset] =
+    useState<PeriodPreset>("last30");
+
+  const [customDate, setCustomDate] =
+    useState(getTodayIso());
+
+  const [rangeFrom, setRangeFrom] =
+    useState(
+      addDaysIso(getTodayIso(), -6),
+    );
+
+  const [rangeTo, setRangeTo] =
+    useState(getTodayIso());
+
+  const [activePeriod, setActivePeriod] =
+    useState<AnalyticsPeriod>(() =>
+      buildAnalyticsPeriod("last30"),
+    );
+
+  const [filterError, setFilterError] =
+    useState<string | null>(null);
+
+  // ========================================
   // FETCH ANALYTICS
   // ========================================
 
   const fetchAnalytics = async (
     showRefreshLoader = false,
+    query: AnalyticsQuery = activePeriod.query,
   ) => {
     try {
       setError(null);
@@ -112,24 +161,54 @@ export default function SudoAnalytics() {
         setIsLoading(true);
       }
 
+      const growthPromise = getSudoGrowth(
+        30,
+      ).catch((growthError) => {
+        console.error(
+          "Failed to load revenue growth:",
+          growthError,
+        );
+
+        return null;
+      });
+
+      const sheetsTodayPromise =
+        getSudoSheetsPrintedToday().catch(
+          (sheetsError) => {
+            console.error(
+              "Failed to load sheets printed today:",
+              sheetsError,
+            );
+
+            return null;
+          },
+        );
+
       const [
         revenueData,
         kioskRevenueData,
         growthData,
+        sheetsTodayData,
       ] = await Promise.all([
-        getSudoRevenue(),
-        getSudoRevenueByKiosk(),
-        getSudoGrowth(30),
+        getSudoRevenue(query),
+        getSudoRevenueByKiosk(query),
+        growthPromise,
+        sheetsTodayPromise,
       ]);
 
       setRevenue(revenueData);
 
-      // Backend returns data directly as an array
       setRevenueByKiosk(
         kioskRevenueData,
       );
 
-      setGrowth(growthData);
+      if (growthData) {
+        setGrowth(growthData);
+      }
+
+      if (sheetsTodayData) {
+        setSheetsToday(sheetsTodayData);
+      }
     } catch (err) {
       console.error(
         "Failed to load Sudo analytics:",
@@ -144,6 +223,93 @@ export default function SudoAnalytics() {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  // ========================================
+  // PERIOD ACTIONS
+  // ========================================
+
+  const handlePresetChange = (
+    nextPreset: PeriodPreset,
+  ) => {
+    setPreset(nextPreset);
+    setFilterError(null);
+
+    if (
+      nextPreset === "date" ||
+      nextPreset === "range"
+    ) {
+      return;
+    }
+
+    const nextPeriod =
+      buildAnalyticsPeriod(nextPreset);
+
+    setActivePeriod(nextPeriod);
+
+    void fetchAnalytics(
+      true,
+      nextPeriod.query,
+    );
+  };
+
+  const handleApplyCustomPeriod = () => {
+    setFilterError(null);
+
+    if (preset === "date") {
+      if (!customDate) {
+        setFilterError(
+          "Select a date to continue.",
+        );
+
+        return;
+      }
+
+      const nextPeriod =
+        buildAnalyticsPeriod("date", {
+          date: customDate,
+        });
+
+      setActivePeriod(nextPeriod);
+
+      void fetchAnalytics(
+        true,
+        nextPeriod.query,
+      );
+
+      return;
+    }
+
+    if (preset === "range") {
+      if (!rangeFrom || !rangeTo) {
+        setFilterError(
+          "Select both a start and end date.",
+        );
+
+        return;
+      }
+
+      if (rangeFrom > rangeTo) {
+        setFilterError(
+          "The start date must be on or before the end date.",
+        );
+
+        return;
+      }
+
+      const nextPeriod =
+        buildAnalyticsPeriod("range", {
+          from: rangeFrom,
+          to: rangeTo,
+        });
+
+      setActivePeriod(nextPeriod);
+
+      void fetchAnalytics(
+        true,
+        nextPeriod.query,
+      );
     }
   };
 
@@ -175,6 +341,27 @@ export default function SudoAnalytics() {
       1,
     );
   }, [chartData]);
+
+  const kioskTotals = useMemo(() => {
+    return revenueByKiosk.reduce(
+      (totals, kiosk) => ({
+        revenue:
+          totals.revenue +
+          Number(kiosk.total_revenue || 0),
+        sheets:
+          totals.sheets +
+          Number(kiosk.total_sheets || 0),
+        sessions:
+          totals.sessions +
+          Number(kiosk.sessions || 0),
+      }),
+      {
+        revenue: 0,
+        sheets: 0,
+        sessions: 0,
+      },
+    );
+  }, [revenueByKiosk]);
 
   // ========================================
   // LOADING
@@ -272,6 +459,144 @@ export default function SudoAnalytics() {
       </div>
 
       {/* ======================================
+          PERIOD FILTER
+      ====================================== */}
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+
+          <div className="flex flex-wrap items-end gap-3">
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Period
+              </label>
+
+              <select
+                value={preset}
+                onChange={(event) =>
+                  handlePresetChange(
+                    event.target
+                      .value as PeriodPreset,
+                  )
+                }
+                className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-brand-dark outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+              >
+                {periodOptions.map(
+                  (option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+
+            {preset === "date" && (
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Date
+                </label>
+
+                <input
+                  type="date"
+                  value={customDate}
+                  max={getTodayIso()}
+                  onChange={(event) =>
+                    setCustomDate(
+                      event.target.value,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-brand-dark outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+                />
+              </div>
+            )}
+
+            {preset === "range" && (
+              <>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    From
+                  </label>
+
+                  <input
+                    type="date"
+                    value={rangeFrom}
+                    max={getTodayIso()}
+                    onChange={(event) =>
+                      setRangeFrom(
+                        event.target.value,
+                      )
+                    }
+                    className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-brand-dark outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    To
+                  </label>
+
+                  <input
+                    type="date"
+                    value={rangeTo}
+                    max={getTodayIso()}
+                    onChange={(event) =>
+                      setRangeTo(
+                        event.target.value,
+                      )
+                    }
+                    className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-brand-dark outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50"
+                  />
+                </div>
+              </>
+            )}
+
+            {(preset === "date" ||
+              preset === "range") && (
+              <button
+                type="button"
+                onClick={
+                  handleApplyCustomPeriod
+                }
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand-purple px-5 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                <Filter className="h-4 w-4" />
+                Apply
+              </button>
+            )}
+
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+
+            <Filter className="h-4 w-4 text-gray-400" />
+
+            <span>
+              Showing{" "}
+              <span className="font-semibold text-brand-dark">
+                {activePeriod.label}
+              </span>{" "}
+              · UTC
+            </span>
+
+          </div>
+
+        </div>
+
+        {filterError && (
+          <p className="mt-3 text-sm font-medium text-red-600">
+            {filterError}
+          </p>
+        )}
+
+      </div>
+
+      {/* ======================================
           ERROR BANNER
       ====================================== */}
 
@@ -285,9 +610,9 @@ export default function SudoAnalytics() {
           OVERVIEW CARDS
       ====================================== */}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-        {/* TOTAL REVENUE */}
+        {/* REVENUE */}
 
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
 
@@ -295,7 +620,7 @@ export default function SudoAnalytics() {
 
             <div>
               <p className="text-sm font-medium text-gray-500">
-                Total Revenue
+                Revenue
               </p>
 
               <h2 className="mt-2 text-3xl font-bold text-brand-dark">
@@ -311,34 +636,13 @@ export default function SudoAnalytics() {
 
           </div>
 
-          {growth?.growth_pct !== null &&
-            growth?.growth_pct !== undefined && (
-              <div
-                className={`mt-4 flex items-center gap-1.5 text-sm font-semibold ${
-                  growth.growth_pct >= 0
-                    ? "text-green-600"
-                    : "text-red-500"
-                }`}
-              >
-                {growth.growth_pct >= 0 ? (
-                  <TrendingUp className="h-4 w-4" />
-                ) : (
-                  <TrendingDown className="h-4 w-4" />
-                )}
-
-                {growth.growth_pct >= 0
-                  ? "+"
-                  : "-"}
-                {Math.abs(
-                  growth.growth_pct,
-                ).toFixed(1)}
-                % from previous period
-              </div>
-            )}
+          <p className="mt-4 text-sm text-gray-500">
+            For {activePeriod.label}
+          </p>
 
         </div>
 
-        {/* TOTAL SHEETS */}
+        {/* SHEETS */}
 
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
 
@@ -346,7 +650,7 @@ export default function SudoAnalytics() {
 
             <div>
               <p className="text-sm font-medium text-gray-500">
-                Total Sheets
+                Sheets Printed
               </p>
 
               <h2 className="mt-2 text-3xl font-bold text-brand-dark">
@@ -363,7 +667,7 @@ export default function SudoAnalytics() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Physical sheets printed
+            Physical sheets · {activePeriod.label}
           </p>
 
         </div>
@@ -393,7 +697,37 @@ export default function SudoAnalytics() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Total print sessions
+            For {activePeriod.label}
+          </p>
+
+        </div>
+
+        {/* SHEETS TODAY */}
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+
+          <div className="flex items-start justify-between">
+
+            <div>
+              <p className="text-sm font-medium text-gray-500">
+                Sheets Printed Today
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold text-brand-dark">
+                {formatNumber(
+                  sheetsToday?.total_sheets ?? 0,
+                )}
+              </h2>
+            </div>
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50">
+              <CalendarDays className="h-5 w-5 text-emerald-600" />
+            </div>
+
+          </div>
+
+          <p className="mt-4 text-sm text-gray-500">
+            Platform-wide · UTC
           </p>
 
         </div>
@@ -415,7 +749,7 @@ export default function SudoAnalytics() {
 
             <p className="mt-1 text-sm text-gray-500">
               Revenue performance over the
-              last 30 days
+              last 30 days · UTC
             </p>
           </div>
 
@@ -537,8 +871,12 @@ export default function SudoAnalytics() {
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Platform revenue performance
-            across kiosks
+            Revenue performance for{" "}
+            <span className="font-semibold text-brand-dark">
+              {activePeriod.label}
+            </span>
+            . All kiosks are included, even with
+            zero revenue.
           </p>
 
         </div>
@@ -591,11 +929,20 @@ export default function SudoAnalytics() {
 
                         <div className="flex items-center gap-3">
 
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+                            <Building2 className="h-4 w-4" />
+                          </div>
 
                           <div>
                             <p className="font-semibold text-brand-dark">
                               {kiosk.kiosk_name}
                             </p>
+
+                            {kiosk.institution_id && (
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                Institution kiosk
+                              </p>
+                            )}
 
                           </div>
 
@@ -607,7 +954,14 @@ export default function SudoAnalytics() {
 
                       <td className="px-6 py-4">
 
-                        <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-600">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${
+                            kiosk.kiosk_type ===
+                            "institution"
+                              ? "bg-purple-50 text-purple-700"
+                              : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
                           {kiosk.kiosk_type ||
                             "Kiosk"}
                         </span>
@@ -647,6 +1001,37 @@ export default function SudoAnalytics() {
                 )}
 
               </tbody>
+
+              <tfoot>
+                <tr className="border-t border-gray-200 bg-gray-50/80">
+
+                  <td
+                    colSpan={2}
+                    className="px-6 py-4 text-sm font-bold text-brand-dark"
+                  >
+                    All kiosks
+                  </td>
+
+                  <td className="px-6 py-4 text-right text-sm font-bold text-brand-dark">
+                    {formatCurrency(
+                      kioskTotals.revenue,
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
+                    {formatNumber(
+                      kioskTotals.sheets,
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
+                    {formatNumber(
+                      kioskTotals.sessions,
+                    )}
+                  </td>
+
+                </tr>
+              </tfoot>
 
             </table>
 

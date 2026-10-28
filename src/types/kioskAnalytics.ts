@@ -11,6 +11,16 @@ export interface ApiResponse<T> {
 }
 
 // ==========================================
+// REVENUE QUERY
+// ==========================================
+
+export interface RevenueQueryParams {
+  from?: string;
+  to?: string;
+  date?: string;
+}
+
+// ==========================================
 // REVENUE
 // ==========================================
 
@@ -18,6 +28,14 @@ export interface RevenueSummary {
   total_revenue: number;
   total_sheets: number;
   sessions: number;
+}
+
+// ==========================================
+// SHEETS PRINTED
+// ==========================================
+
+export interface SheetsPrintedResponse {
+  total_sheets: number;
 }
 
 export interface KioskRevenue {

@@ -8,7 +8,6 @@ import {
   Eye,
   Pencil,
   Trash2,
-  RefreshCw,
   Loader2,
   MapPin,
   CircleAlert,
@@ -17,25 +16,11 @@ import {
 import { toast } from "sonner";
 
 import { deleteKiosk, getKiosks } from "../../../api/kioskApi";
+import { getInstitutions } from "../../../api/institutionApi";
 import { useSudoAuth } from "../../../context/SudoAuthContext";
 
-import type { Kiosk, KioskType } from "../../../types/kiosk";
-
-// ==========================================
-// TYPE FILTER OPTIONS
-// ==========================================
-
-const typeOptions: { label: string; value: "all" | KioskType }[] = [
-  { label: "All Types", value: "all" },
-  { label: "Institution", value: "institution" },
-  { label: "Public", value: "public" },
-];
-
-const pairedOptions: { label: string; value: "all" | "paired" | "unpaired" }[] = [
-  { label: "All Pairing", value: "all" },
-  { label: "Paired", value: "paired" },
-  { label: "Unpaired", value: "unpaired" },
-];
+import type { Kiosk } from "../../../types/kiosk";
+import type { Institution } from "../../../types/institution";
 
 // ==========================================
 // FORMAT DATE
@@ -140,10 +125,10 @@ export default function KiosksPage() {
 
   const [search, setSearch] = useState("");
 
-  const [typeFilter, setTypeFilter] = useState<"all" | KioskType>("all");
+  const [institutionFilter, setInstitutionFilter] =
+    useState<string>("all");
 
-  const [pairedFilter, setPairedFilter] =
-    useState<"all" | "paired" | "unpaired">("all");
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -176,6 +161,49 @@ export default function KiosksPage() {
     void fetchKiosks();
   }, [fetchKiosks]);
 
+  // ==========================================
+  // LOAD INSTITUTIONS FOR THE FILTER
+  // ==========================================
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let cancelled = false;
+
+    const loadInstitutions = async () => {
+      try {
+        const data = await getInstitutions(accessToken);
+
+        if (!cancelled) {
+          setInstitutions(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch institutions:", error);
+      }
+    };
+
+    void loadInstitutions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  const institutionNameById = useMemo(() => {
+    return new Map(
+      institutions.map((institution) => [
+        institution.id,
+        institution.name,
+      ]),
+    );
+  }, [institutions]);
+
+  const sortedInstitutions = useMemo(() => {
+    return [...institutions].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [institutions]);
+
   const filteredKiosks = useMemo(() => {
     return kiosks.filter((kiosk) => {
       const searchValue = search.trim().toLowerCase();
@@ -188,19 +216,15 @@ export default function KiosksPage() {
         kiosk.state.toLowerCase().includes(searchValue) ||
         kiosk.country.toLowerCase().includes(searchValue);
 
-      const matchesType =
-        typeFilter === "all" || kiosk.kiosk_type === typeFilter;
+      const matchesInstitution =
+        institutionFilter === "all" ||
+        (institutionFilter === "public"
+          ? kiosk.kiosk_type === "public"
+          : kiosk.institution_id === institutionFilter);
 
-      const isPaired = kiosk.paired_at !== null;
-
-      const matchesPaired =
-        pairedFilter === "all" ||
-        (pairedFilter === "paired" && isPaired) ||
-        (pairedFilter === "unpaired" && !isPaired);
-
-      return matchesSearch && matchesType && matchesPaired;
+      return matchesSearch && matchesInstitution;
     });
-  }, [kiosks, search, typeFilter, pairedFilter]);
+  }, [kiosks, search, institutionFilter]);
 
   // ==========================================
   // OPEN DELETE CONFIRMATION
@@ -336,50 +360,24 @@ export default function KiosksPage() {
           />
         </div>
 
-        {/* TYPE FILTER */}
+        {/* INSTITUTION FILTER */}
 
         <select
-          value={typeFilter}
+          value={institutionFilter}
           onChange={(event) =>
-            setTypeFilter(event.target.value as "all" | KioskType)
+            setInstitutionFilter(event.target.value)
           }
           className="h-12 rounded-full border border-gray-200 bg-white px-5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
         >
-          {typeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          <option value="all">All kiosks</option>
+          <option value="public">Public kiosks</option>
+
+          {sortedInstitutions.map((institution) => (
+            <option key={institution.id} value={institution.id}>
+              {institution.name}
             </option>
           ))}
         </select>
-
-        {/* PAIRED FILTER */}
-
-        <select
-          value={pairedFilter}
-          onChange={(event) =>
-            setPairedFilter(
-              event.target.value as "all" | "paired" | "unpaired",
-            )
-          }
-          className="h-12 rounded-full border border-gray-200 bg-white px-5 text-sm font-medium outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10"
-        >
-          {pairedOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        {/* REFRESH */}
-
-        <button
-          type="button"
-          onClick={() => void fetchKiosks()}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-gray-200 px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </button>
       </div>
 
       {/* ======================================
@@ -495,6 +493,13 @@ export default function KiosksPage() {
                               {kiosk.name}
                             </p>
                             <p className="mt-0.5 text-xs font-medium text-gray-500">
+                              {kiosk.institution_id
+                                ? institutionNameById.get(
+                                    kiosk.institution_id,
+                                  ) ?? "Institution kiosk"
+                                : "Public kiosk"}
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-400">
                               {kiosk.pairing_code}
                             </p>
                           </div>

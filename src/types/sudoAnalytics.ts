@@ -3,6 +3,16 @@
 // ==========================================
 
 // ==========================================
+// REVENUE QUERY
+// ==========================================
+
+export interface RevenueQueryParams {
+  from?: string;
+  to?: string;
+  date?: string;
+}
+
+// ==========================================
 // REVENUE OVERVIEW
 // ==========================================
 
@@ -10,6 +20,14 @@ export interface SudoRevenueResponse {
   total_revenue: number;
   total_sheets: number;
   sessions: number;
+}
+
+// ==========================================
+// SHEETS PRINTED
+// ==========================================
+
+export interface SheetsPrintedResponse {
+  total_sheets: number;
 }
 
 // ==========================================

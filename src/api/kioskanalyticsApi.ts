@@ -2,6 +2,7 @@ import { SUDO_API_BASE_URL } from "./apiConfig";
 
 import type {
   ApiResponse,
+  RevenueQueryParams,
   RevenueSummary,
   KioskRevenue,
   PrintModeRevenue,
@@ -9,6 +10,7 @@ import type {
   KioskPageAnalytics,
   StuckJob,
   UnprintedDocument,
+  SheetsPrintedResponse,
 } from "../types/kioskAnalytics";
 
 // ==========================================
@@ -122,9 +124,16 @@ const get = async <T>(
 export const getRevenueByKiosk =
   async (
     accessToken: string,
+    params: RevenueQueryParams = {},
   ): Promise<KioskRevenue[]> => {
+    const query = buildQuery({
+      date: params.date,
+      from: params.from,
+      to: params.to,
+    });
+
     return get<KioskRevenue[]>(
-      "/sudo-admin/analytics/revenue/by-kiosk",
+      `/sudo-admin/analytics/revenue/by-kiosk${query}`,
       accessToken,
     );
   };
@@ -137,11 +146,35 @@ export const getKioskRevenue =
   async (
     accessToken: string,
     kioskId: string,
+    params: RevenueQueryParams = {},
   ): Promise<RevenueSummary> => {
+    const query = buildQuery({
+      date: params.date,
+      from: params.from,
+      to: params.to,
+    });
+
     return get<RevenueSummary>(
       `/sudo-admin/analytics/kiosks/${encodeURIComponent(
         kioskId,
-      )}/revenue`,
+      )}/revenue${query}`,
+      accessToken,
+    );
+  };
+
+// ==========================================
+// 2b. KIOSK SHEETS PRINTED TODAY
+// ==========================================
+
+export const getKioskSheetsPrintedToday =
+  async (
+    accessToken: string,
+    kioskId: string,
+  ): Promise<SheetsPrintedResponse> => {
+    return get<SheetsPrintedResponse>(
+      `/sudo-admin/analytics/kiosks/${encodeURIComponent(
+        kioskId,
+      )}/sheets/printed/today`,
       accessToken,
     );
   };
