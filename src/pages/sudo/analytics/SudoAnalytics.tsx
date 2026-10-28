@@ -24,12 +24,18 @@ import {
   getSudoSheetsPrintedToday,
 } from "../../../api/analyticsApi";
 
+import { getInstitutions } from "../../../api/institutionApi";
+
+import { useSudoAuth } from "../../../context/SudoAuthContext";
+
 import type {
   SheetsPrintedResponse,
   SudoGrowthResponse,
   SudoRevenueByKioskResponse,
   SudoRevenueResponse,
 } from "../../../types/sudoAnalytics";
+
+import type { Institution } from "../../../types/institution";
 
 import {
   addDaysIso,
@@ -82,10 +88,30 @@ const formatDate = (
 };
 
 // ==========================================
+// SCOPE OPTIONS
+// ==========================================
+
+type AnalyticsScope =
+  | "all"
+  | "institution"
+  | "public";
+
+const scopeOptions: Array<{
+  value: AnalyticsScope;
+  label: string;
+}> = [
+  { value: "all", label: "All kiosks" },
+  { value: "institution", label: "Institution" },
+  { value: "public", label: "Public" },
+];
+
+// ==========================================
 // COMPONENT
 // ==========================================
 
 export default function SudoAnalytics() {
+  const { accessToken } = useSudoAuth();
+
   // ========================================
   // STATE
   // ========================================
@@ -145,12 +171,104 @@ export default function SudoAnalytics() {
     useState<string | null>(null);
 
   // ========================================
+  // SCOPE FILTER
+  // ========================================
+
+  const [scope, setScope] =
+    useState<AnalyticsScope>("all");
+
+  const [
+    selectedInstitutionId,
+    setSelectedInstitutionId,
+  ] = useState("");
+
+  const [institutions, setInstitutions] =
+    useState<Institution[]>([]);
+
+  const sortedInstitutions = useMemo(() => {
+    return [...institutions].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [institutions]);
+
+  const institutionNameById = useMemo(() => {
+    return new Map(
+      institutions.map((institution) => [
+        institution.id,
+        institution.name,
+      ]),
+    );
+  }, [institutions]);
+
+  const effectiveInstitutionId =
+    scope === "institution"
+      ? selectedInstitutionId ||
+        sortedInstitutions[0]?.id ||
+        ""
+      : "";
+
+  const selectedInstitution = useMemo(() => {
+    return sortedInstitutions.find(
+      (institution) =>
+        institution.id ===
+        effectiveInstitutionId,
+    );
+  }, [
+    sortedInstitutions,
+    effectiveInstitutionId,
+  ]);
+
+  const scopeLabel =
+    scope === "all"
+      ? "All kiosks"
+      : scope === "public"
+        ? "Public kiosks"
+        : selectedInstitution?.name ||
+          "Institution";
+
+  const isScoped = scope !== "all";
+
+  // ========================================
+  // LOAD INSTITUTIONS
+  // ========================================
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let cancelled = false;
+
+    const loadInstitutions = async () => {
+      try {
+        const data =
+          await getInstitutions(accessToken);
+
+        if (!cancelled) {
+          setInstitutions(data);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load institutions:",
+          error,
+        );
+      }
+    };
+
+    void loadInstitutions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  // ========================================
   // FETCH ANALYTICS
   // ========================================
 
   const fetchAnalytics = async (
     showRefreshLoader = false,
     query: AnalyticsQuery = activePeriod.query,
+    scopeValue: AnalyticsScope = scope,
+    institutionId: string = effectiveInstitutionId,
   ) => {
     try {
       setError(null);
@@ -161,54 +279,130 @@ export default function SudoAnalytics() {
         setIsLoading(true);
       }
 
-      const growthPromise = getSudoGrowth(
-        30,
-      ).catch((growthError) => {
-        console.error(
-          "Failed to load revenue growth:",
-          growthError,
-        );
+      const kioskRevenueData =
+        await getSudoRevenueByKiosk(query);
 
-        return null;
-      });
+      // Only keep kiosks that belong to the selected scope.
+      const scopedKiosks =
+        kioskRevenueData.filter((kiosk) => {
+          if (scopeValue === "all") {
+            return true;
+          }
 
-      const sheetsTodayPromise =
-        getSudoSheetsPrintedToday().catch(
-          (sheetsError) => {
-            console.error(
-              "Failed to load sheets printed today:",
-              sheetsError,
-            );
+          if (scopeValue === "public") {
+            return kiosk.kiosk_type === "public";
+          }
 
-            return null;
+          return (
+            kiosk.institution_id ===
+            institutionId
+          );
+        });
+
+      const scopedTotals =
+        scopedKiosks.reduce(
+          (totals, kiosk) => ({
+            revenue:
+              totals.revenue +
+              Number(
+                kiosk.total_revenue || 0,
+              ),
+            sheets:
+              totals.sheets +
+              Number(
+                kiosk.total_sheets || 0,
+              ),
+            sessions:
+              totals.sessions +
+              Number(kiosk.sessions || 0),
+          }),
+          {
+            revenue: 0,
+            sheets: 0,
+            sessions: 0,
           },
         );
 
+      const revenuePromise =
+        scopeValue === "all"
+          ? getSudoRevenue(query)
+          : Promise.resolve({
+              total_revenue:
+                scopedTotals.revenue,
+              total_sheets:
+                scopedTotals.sheets,
+              sessions:
+                scopedTotals.sessions,
+            });
+
+      const growthPromise =
+        scopeValue === "all"
+          ? getSudoGrowth(30).catch(
+              (growthError) => {
+                console.error(
+                  "Failed to load revenue growth:",
+                  growthError,
+                );
+
+                return null;
+              },
+            )
+          : Promise.resolve(null);
+
+      const sheetsTodayPromise =
+        scopeValue === "all"
+          ? getSudoSheetsPrintedToday().catch(
+              (sheetsError) => {
+                console.error(
+                  "Failed to load sheets printed today:",
+                  sheetsError,
+                );
+
+                return null;
+              },
+            )
+          : Promise.all(
+              scopedKiosks.map((kiosk) =>
+                getSudoSheetsPrintedToday(
+                  kiosk.kiosk_id,
+                ).catch((sheetsError) => {
+                  console.error(
+                    "Failed to load sheets printed today for kiosk:",
+                    kiosk.kiosk_id,
+                    sheetsError,
+                  );
+
+                  return null;
+                }),
+              ),
+            ).then((results) => ({
+              total_sheets: results.reduce(
+                (sum, result) =>
+                  sum +
+                  Number(
+                    result?.total_sheets ?? 0,
+                  ),
+                0,
+              ),
+            }));
+
       const [
         revenueData,
-        kioskRevenueData,
         growthData,
         sheetsTodayData,
       ] = await Promise.all([
-        getSudoRevenue(query),
-        getSudoRevenueByKiosk(query),
+        revenuePromise,
         growthPromise,
         sheetsTodayPromise,
       ]);
 
       setRevenue(revenueData);
 
-      setRevenueByKiosk(
-        kioskRevenueData,
-      );
+      setRevenueByKiosk(scopedKiosks);
 
-      if (growthData) {
-        setGrowth(growthData);
-      }
+      setGrowth(growthData);
 
-      if (sheetsTodayData) {
-        setSheetsToday(sheetsTodayData);
-      }
+      setSheetsToday(sheetsTodayData);
     } catch (err) {
       console.error(
         "Failed to load Sudo analytics:",
@@ -314,12 +508,34 @@ export default function SudoAnalytics() {
   };
 
   // ========================================
-  // INITIAL LOAD
+  // SCOPE ACTIONS
+  // ========================================
+
+  const handleScopeChange = (
+    nextScope: AnalyticsScope,
+  ) => {
+    setScope(nextScope);
+  };
+
+  const handleInstitutionChange = (
+    institutionId: string,
+  ) => {
+    setSelectedInstitutionId(institutionId);
+  };
+
+  // ========================================
+  // INITIAL LOAD + SCOPE REFRESH
   // ========================================
 
   useEffect(() => {
-    void fetchAnalytics();
-  }, []);
+    void fetchAnalytics(
+      true,
+      activePeriod.query,
+      scope,
+      effectiveInstitutionId,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, effectiveInstitutionId]);
 
   // ========================================
   // CHART DATA
@@ -464,6 +680,103 @@ export default function SudoAnalytics() {
 
       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
 
+        {/* ====================================
+            SCOPE
+        ==================================== */}
+
+        <div className="mb-4 flex flex-col gap-4 border-b border-gray-100 pb-4 lg:flex-row lg:items-end lg:justify-between">
+
+          <div className="flex flex-wrap items-end gap-3">
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Analytics scope
+              </label>
+
+              <div className="inline-flex rounded-xl bg-gray-100 p-1">
+                {scopeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={
+                      scope === option.value
+                    }
+                    onClick={() =>
+                      handleScopeChange(
+                        option.value,
+                      )
+                    }
+                    className={`h-9 rounded-lg px-4 text-sm font-semibold transition ${
+                      scope === option.value
+                        ? "bg-white text-brand-purple shadow-sm"
+                        : "text-gray-500 hover:text-brand-dark"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {scope === "institution" && (
+              <div className="min-w-[240px]">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Institution
+                </label>
+
+                <select
+                  value={effectiveInstitutionId}
+                  onChange={(event) =>
+                    handleInstitutionChange(
+                      event.target.value,
+                    )
+                  }
+                  disabled={
+                    sortedInstitutions.length === 0
+                  }
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-brand-dark outline-none transition focus:border-brand-purple focus:ring-4 focus:ring-purple-50 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  {sortedInstitutions.length === 0 ? (
+                    <option value="">
+                      No institutions available
+                    </option>
+                  ) : (
+                    sortedInstitutions.map(
+                      (institution) => (
+                        <option
+                          key={institution.id}
+                          value={institution.id}
+                        >
+                          {institution.name}
+                        </option>
+                      ),
+                    )
+                  )}
+                </select>
+              </div>
+            )}
+
+          </div>
+
+          <div className="rounded-xl bg-purple-50 px-4 py-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-500">
+              Viewing
+            </p>
+
+            <p className="mt-0.5 text-sm font-bold text-brand-purple">
+              {scopeLabel}
+            </p>
+
+            <p className="mt-0.5 text-[11px] font-medium text-purple-500">
+              {revenueByKiosk.length} kiosk
+              {revenueByKiosk.length === 1
+                ? ""
+                : "s"}
+            </p>
+          </div>
+
+        </div>
+
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
 
           <div className="flex flex-wrap items-end gap-3">
@@ -579,6 +892,10 @@ export default function SudoAnalytics() {
             <span>
               Showing{" "}
               <span className="font-semibold text-brand-dark">
+                {scopeLabel}
+              </span>{" "}
+              ·{" "}
+              <span className="font-semibold text-brand-dark">
                 {activePeriod.label}
               </span>{" "}
               · UTC
@@ -637,7 +954,8 @@ export default function SudoAnalytics() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            For {activePeriod.label}
+            For {scopeLabel} ·{" "}
+            {activePeriod.label}
           </p>
 
         </div>
@@ -667,7 +985,8 @@ export default function SudoAnalytics() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Physical sheets · {activePeriod.label}
+            Physical sheets · {scopeLabel} ·{" "}
+            {activePeriod.label}
           </p>
 
         </div>
@@ -697,7 +1016,8 @@ export default function SudoAnalytics() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            For {activePeriod.label}
+            For {scopeLabel} ·{" "}
+            {activePeriod.label}
           </p>
 
         </div>
@@ -727,7 +1047,10 @@ export default function SudoAnalytics() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Platform-wide · UTC
+            {scope === "all"
+              ? "Platform-wide"
+              : scopeLabel}{" "}
+            · UTC
           </p>
 
         </div>
@@ -738,7 +1061,8 @@ export default function SudoAnalytics() {
           REVENUE GROWTH
       ====================================== */}
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+      {!isScoped ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 
@@ -854,7 +1178,31 @@ export default function SudoAnalytics() {
 
         </div>
 
-      </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100">
+              <BarChart3 className="h-5 w-5 text-gray-400" />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-bold text-brand-dark">
+                Revenue Growth
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Growth trend is available for the
+                all-kiosks view only. Select{" "}
+                <span className="font-semibold text-brand-dark">
+                  All kiosks
+                </span>{" "}
+                to see the platform-wide 30-day trend.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ======================================
           REVENUE BY KIOSK
@@ -873,10 +1221,14 @@ export default function SudoAnalytics() {
           <p className="mt-1 text-sm text-gray-500">
             Revenue performance for{" "}
             <span className="font-semibold text-brand-dark">
+              {scopeLabel}
+            </span>{" "}
+            over{" "}
+            <span className="font-semibold text-brand-dark">
               {activePeriod.label}
             </span>
-            . All kiosks are included, even with
-            zero revenue.
+            . Kiosks in this scope are included,
+            even with zero revenue.
           </p>
 
         </div>
@@ -940,7 +1292,9 @@ export default function SudoAnalytics() {
 
                             {kiosk.institution_id && (
                               <p className="mt-0.5 text-xs text-gray-400">
-                                Institution kiosk
+                                {institutionNameById.get(
+                                  kiosk.institution_id,
+                                ) ?? "Institution kiosk"}
                               </p>
                             )}
 
@@ -1009,7 +1363,7 @@ export default function SudoAnalytics() {
                     colSpan={2}
                     className="px-6 py-4 text-sm font-bold text-brand-dark"
                   >
-                    All kiosks
+                    {scopeLabel}
                   </td>
 
                   <td className="px-6 py-4 text-right text-sm font-bold text-brand-dark">
@@ -1042,13 +1396,16 @@ export default function SudoAnalytics() {
             <Building2 className="h-10 w-10 text-gray-300" />
 
             <h3 className="mt-3 text-sm font-semibold text-brand-dark">
-              No kiosk data
+              No kiosks found
             </h3>
 
             <p className="mt-1 text-sm text-gray-500">
-              Revenue information will
-              appear here once kiosks
-              have printing activity.
+              No kiosks match{" "}
+              <span className="font-semibold text-brand-dark">
+                {scopeLabel}
+              </span>{" "}
+              for {activePeriod.label}. Try another
+              scope or period.
             </p>
 
           </div>

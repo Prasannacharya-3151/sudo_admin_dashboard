@@ -5,6 +5,7 @@ import {
 } from "react";
 
 import {
+  Building2,
   CalendarDays,
   Eye,
   FileText,
@@ -13,7 +14,6 @@ import {
   Printer,
   RefreshCw,
   RotateCcw,
-  Search,
   WalletCards,
   X,
 } from "lucide-react";
@@ -21,11 +21,25 @@ import {
 import {
   getPrintHistory,
 } from "../../../api/printHistoryApi";
+import { getKiosks } from "../../../api/kioskApi";
+import { getInstitutions } from "../../../api/institutionApi";
+import { useSudoAuth } from "../../../context/SudoAuthContext";
 
 import type {
   PrintHistoryFilters,
   PrintHistorySession,
 } from "../../../types/sudoPrintHistory";
+import type { Institution } from "../../../types/institution";
+import type { Kiosk } from "../../../types/kiosk";
+
+// ==========================================
+// FILTER OVERRIDES
+// ==========================================
+
+interface PrintHistoryFilterOverrides {
+  kiosk_id?: string;
+  institution_id?: string;
+}
 
 // ==========================================
 // HELPERS
@@ -134,6 +148,8 @@ function StatusBadge({
 // ==========================================
 
 export default function PrintHistory() {
+  const { accessToken } = useSudoAuth();
+
   // ========================================
   // DATA
   // ========================================
@@ -195,6 +211,22 @@ export default function PrintHistory() {
     useState(false);
 
   // ========================================
+  // INSTITUTION / KIOSK OPTIONS
+  // ========================================
+
+  const [institutions, setInstitutions] =
+    useState<Institution[]>([]);
+
+  const [kiosks, setKiosks] =
+    useState<Kiosk[]>([]);
+
+  const [isOptionsLoading, setIsOptionsLoading] =
+    useState(true);
+
+  const [optionsError, setOptionsError] =
+    useState<string | null>(null);
+
+  // ========================================
   // PAGINATION
   // ========================================
 
@@ -215,6 +247,133 @@ export default function PrintHistory() {
   >(null);
 
   // ========================================
+  // LOAD INSTITUTIONS + KIOSKS
+  // ========================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOptions = async () => {
+      const [institutionsResult, kiosksResult] =
+        await Promise.allSettled([
+          accessToken
+            ? getInstitutions(accessToken)
+            : Promise.resolve([]),
+          getKiosks(),
+        ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (
+        institutionsResult.status ===
+        "fulfilled"
+      ) {
+        setInstitutions(
+          institutionsResult.value,
+        );
+      } else {
+        console.error(
+          "Failed to load institutions:",
+          institutionsResult.reason,
+        );
+      }
+
+      if (
+        kiosksResult.status ===
+        "fulfilled"
+      ) {
+        setKiosks(kiosksResult.value);
+      } else {
+        console.error(
+          "Failed to load kiosks:",
+          kiosksResult.reason,
+        );
+      }
+
+      if (
+        kiosksResult.status ===
+        "rejected"
+      ) {
+        setOptionsError(
+          "Unable to load the kiosk list. Please refresh the page.",
+        );
+      } else if (
+        institutionsResult.status ===
+        "rejected"
+      ) {
+        setOptionsError(
+          "Unable to load institutions. You can still select from all kiosks.",
+        );
+      } else {
+        setOptionsError(null);
+      }
+
+      setIsOptionsLoading(false);
+    };
+
+    void loadOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  // ========================================
+  // OPTIONS
+  // ========================================
+
+  const sortedInstitutions =
+    useMemo(() => {
+      return [...institutions].sort(
+        (a, b) =>
+          a.name.localeCompare(b.name),
+      );
+    }, [institutions]);
+
+  const institutionNameById =
+    useMemo(() => {
+      return new Map(
+        institutions.map(
+          (institution) => [
+            institution.id,
+            institution.name,
+          ],
+        ),
+      );
+    }, [institutions]);
+
+  const availableKiosks =
+    useMemo(() => {
+      const matchingKiosks =
+        institutionId
+          ? kiosks.filter(
+              (kiosk) =>
+                kiosk.institution_id ===
+                institutionId,
+            )
+          : kiosks;
+
+      return [...matchingKiosks].sort(
+        (a, b) =>
+          a.name.localeCompare(b.name),
+      );
+    }, [kiosks, institutionId]);
+
+  const selectedKiosk =
+    useMemo(() => {
+      return kiosks.find(
+        (kiosk) => kiosk.id === kioskId,
+      );
+    }, [kiosks, kioskId]);
+
+  const selectedInstitutionName =
+    institutionNameById.get(
+      institutionId,
+    ) ?? "Institution";
+
+  // ========================================
   // FETCH DATA
   // ========================================
 
@@ -222,6 +381,7 @@ export default function PrintHistory() {
     async (
       showRefreshLoader = false,
       requestedPage = page,
+      overrides: PrintHistoryFilterOverrides = {},
     ) => {
       try {
         setError(null);
@@ -232,14 +392,26 @@ export default function PrintHistory() {
           setIsLoading(true);
         }
 
+        const effectiveKioskId =
+          overrides.kiosk_id !==
+          undefined
+            ? overrides.kiosk_id
+            : kioskId;
+
+        const effectiveInstitutionId =
+          overrides.institution_id !==
+          undefined
+            ? overrides.institution_id
+            : institutionId;
+
         const filters: PrintHistoryFilters =
           {
             kiosk_id:
-              kioskId.trim() ||
+              effectiveKioskId.trim() ||
               undefined,
 
             institution_id:
-              institutionId.trim() ||
+              effectiveInstitutionId.trim() ||
               undefined,
 
             only_printed:
@@ -328,6 +500,35 @@ export default function PrintHistory() {
         ),
       );
     }, [total]);
+
+  // ========================================
+  // INSTITUTION / KIOSK CHANGE
+  // ========================================
+
+  const handleInstitutionChange = (
+    nextInstitutionId: string,
+  ) => {
+    setInstitutionId(nextInstitutionId);
+    setKioskId("");
+    setPage(1);
+
+    void fetchPrintHistory(false, 1, {
+      institution_id: nextInstitutionId,
+      kiosk_id: "",
+    });
+  };
+
+  const handleKioskChange = (
+    nextKioskId: string,
+  ) => {
+    setKioskId(nextKioskId);
+    setPage(1);
+
+    void fetchPrintHistory(false, 1, {
+      kiosk_id: nextKioskId,
+      institution_id: institutionId,
+    });
+  };
 
   // ========================================
   // APPLY FILTERS
@@ -514,55 +715,141 @@ export default function PrintHistory() {
             </h2>
           </div>
 
+          <p className="mt-1 text-sm text-gray-500">
+            Select an institution to narrow the kiosk list, then
+            choose a kiosk to view its print sessions.
+          </p>
+
+          {optionsError && (
+            <p className="mt-2 text-xs font-medium text-red-600">
+              {optionsError}
+            </p>
+          )}
+
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {/* KIOSK ID */}
+            {/* INSTITUTION */}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Kiosk ID
+                Institution
               </label>
 
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
-                <input
-                  type="text"
-                  value={kioskId}
+                <select
+                  value={institutionId}
                   onChange={(event) =>
-                    setKioskId(
+                    handleInstitutionChange(
                       event.target.value,
                     )
                   }
-                  placeholder="Enter kiosk ID"
-                  className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
-                />
+                  disabled={isOptionsLoading}
+                  className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-10 pr-8 text-sm text-gray-700 outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  {isOptionsLoading ? (
+                    <option value="">
+                      Loading institutions...
+                    </option>
+                  ) : (
+                    <>
+                      <option value="">
+                        All institutions
+                      </option>
+
+                      {sortedInstitutions.map(
+                        (institution) => (
+                          <option
+                            key={institution.id}
+                            value={institution.id}
+                          >
+                            {institution.name}
+                          </option>
+                        ),
+                      )}
+                    </>
+                  )}
+                </select>
               </div>
             </div>
 
-            {/* INSTITUTION ID */}
+            {/* KIOSK */}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Institution ID
+                Kiosk
               </label>
 
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Printer className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
-                <input
-                  type="text"
-                  value={
-                    institutionId
-                  }
+                <select
+                  value={kioskId}
                   onChange={(event) =>
-                    setInstitutionId(
+                    handleKioskChange(
                       event.target.value,
                     )
                   }
-                  placeholder="Enter institution ID"
-                  className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10"
-                />
+                  disabled={isOptionsLoading}
+                  className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-10 pr-8 text-sm text-gray-700 outline-none transition focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  {isOptionsLoading ? (
+                    <option value="">
+                      Loading kiosks...
+                    </option>
+                  ) : availableKiosks.length ===
+                    0 ? (
+                    <option value="">
+                      No kiosks found
+                    </option>
+                  ) : (
+                    <>
+                      <option value="">
+                        {institutionId
+                          ? "All kiosks in institution"
+                          : "All kiosks"}
+                      </option>
+
+                      {availableKiosks.map(
+                        (kiosk) => (
+                          <option
+                            key={kiosk.id}
+                            value={kiosk.id}
+                          >
+                            {kiosk.name}
+                            {institutionId
+                              ? ""
+                              : ` — ${
+                                  kiosk.institution_id
+                                    ? institutionNameById.get(
+                                        kiosk.institution_id,
+                                      ) ??
+                                      "Institution kiosk"
+                                    : "Public kiosk"
+                                }`}
+                          </option>
+                        ),
+                      )}
+                    </>
+                  )}
+                </select>
               </div>
+
+              <p className="mt-1.5 text-xs text-gray-400">
+                {institutionId
+                  ? `${availableKiosks.length} kiosk${
+                      availableKiosks.length === 1
+                        ? ""
+                        : "s"
+                    } in ${selectedInstitutionName}`
+                  : selectedKiosk
+                    ? selectedKiosk.institution_id
+                      ? institutionNameById.get(
+                          selectedKiosk.institution_id,
+                        ) ?? "Institution kiosk"
+                      : "Public kiosk"
+                    : "Choose a kiosk to view its sessions"}
+              </p>
             </div>
 
             {/* FROM */}
@@ -756,6 +1043,11 @@ export default function PrintHistory() {
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
+                {selectedKiosk
+                  ? `${selectedKiosk.name} · `
+                  : institutionId
+                    ? `${selectedInstitutionName} · `
+                    : ""}
                 {formatNumber(
                   total,
                 )}{" "}
