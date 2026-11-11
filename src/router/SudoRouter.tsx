@@ -41,6 +41,7 @@ import TransactionsPage from "../pages/sudo/transactions/TransactionsPage";
 import SudoAnalytics from "../pages/sudo/analytics/SudoAnalytics";
 import PrintHistory from "../pages/sudo/analytics/PrintHistory";
 import KioskAnalytics from "../pages/sudo/analytics/KioskAnalytics";
+import SheetUsage from "../pages/sudo/analytics/SheetUsage";
 
 export default function SudoRouter() {
   return (
@@ -147,6 +148,11 @@ export default function SudoRouter() {
           <Route
             path="analytics/kiosks"
             element={<KioskAnalytics />}
+          />
+
+          <Route
+            path="analytics/sheet-usage"
+            element={<SheetUsage />}
           />
    
           <Route

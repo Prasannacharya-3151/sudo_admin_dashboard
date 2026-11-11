@@ -6,6 +6,7 @@ import type {
   SudoRevenueResponse,
   SudoRevenueByKioskResponse,
   SudoGrowthResponse,
+  SudoSheetUsageResponse,
 } from "../types/sudoAnalytics";
 
 // ==========================================
@@ -217,3 +218,30 @@ export const getSudoGrowth = async (
 
   return result.data;
 };
+
+// ==========================================
+// GET PRINTED SHEET USAGE TODAY
+// ==========================================
+
+export const getSudoSheetUsageToday =
+  async (): Promise<SudoSheetUsageResponse> => {
+    const response = await fetch(
+      `${SUDO_API_BASE_URL}/sudo-admin/analytics/sheets/usage/today`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      },
+    );
+
+    if (!response.ok) {
+      const message =
+        await getErrorMessage(response);
+
+      throw new Error(message);
+    }
+
+    const result: ApiResponse<SudoSheetUsageResponse> =
+      await response.json();
+
+    return result.data;
+  };

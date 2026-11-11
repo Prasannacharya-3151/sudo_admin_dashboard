@@ -87,3 +87,36 @@ export interface SudoGrowthResponse {
   growth_pct: number | null;
   daily_series: GrowthDailySeries[];
 }
+
+// ==========================================
+// PRINTED SHEET USAGE
+// ==========================================
+
+export interface SheetUsageBreakdown {
+  simplex_sheets: number;
+  duplex_sheets: number;
+  total_sheets: number;
+}
+
+export interface KioskSheetUsage {
+  kiosk_id: string;
+  kiosk_name: string;
+  kiosk_type: string;
+  institution_id?: string | null;
+
+  bw: SheetUsageBreakdown;
+  color: SheetUsageBreakdown;
+
+  total_sheets: number;
+  sessions: number;
+}
+
+export interface SudoSheetUsageResponse {
+  bw: SheetUsageBreakdown;
+  color: SheetUsageBreakdown;
+
+  total_sheets: number;
+  sessions: number;
+
+  by_kiosk: KioskSheetUsage[];
+}

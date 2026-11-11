@@ -12,6 +12,7 @@ import {
   BarChart3,
   History,
   ChartNoAxesCombined,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import {
@@ -110,6 +111,11 @@ const analyticsNavigation = [
     name: "Kiosk Analytics",
     path: "/sudo/analytics/kiosks",
     icon: ChartNoAxesCombined,
+  },
+  {
+    name: "Sheet Usage",
+    path: "/sudo/analytics/sheet-usage",
+    icon: FileSpreadsheet,
   },
 ];
 
