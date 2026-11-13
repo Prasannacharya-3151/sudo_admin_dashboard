@@ -245,3 +245,30 @@ export const getSudoSheetUsageToday =
 
     return result.data;
   };
+
+// ==========================================
+// GET PRINTED SHEET USAGE OVERALL
+// ==========================================
+
+export const getSudoSheetUsageOverall =
+  async (): Promise<SudoSheetUsageResponse> => {
+    const response = await fetch(
+      `${SUDO_API_BASE_URL}/sudo-admin/analytics/sheets/usage/overall`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      },
+    );
+
+    if (!response.ok) {
+      const message =
+        await getErrorMessage(response);
+
+      throw new Error(message);
+    }
+
+    const result: ApiResponse<SudoSheetUsageResponse> =
+      await response.json();
+
+    return result.data;
+  };

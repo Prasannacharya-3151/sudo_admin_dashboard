@@ -697,7 +697,7 @@ export default function KioskAnalytics() {
       <div className="w-full">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#1A1426]">
+            <h1 className="text-xl font-bold text-[#1A1426]">
               Kiosk Analytics
             </h1>
 
@@ -749,7 +749,7 @@ export default function KioskAnalytics() {
 
       <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[#1A1426]">
+          <h1 className="text-2xl font-bold text-brand-dark">
             Kiosk Analytics
           </h1>
 

@@ -1,13 +1,13 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
   BarChart3,
   Building2,
-  CalendarDays,
   FileText,
   Layers,
   Loader2,
@@ -16,7 +16,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import { getSudoSheetUsageToday } from "../../../api/analyticsApi";
+import {
+  getSudoSheetUsageOverall,
+  getSudoSheetUsageToday,
+} from "../../../api/analyticsApi";
 import { getInstitutions } from "../../../api/institutionApi";
 import { useSudoAuth } from "../../../context/SudoAuthContext";
 
@@ -29,6 +32,16 @@ import type { Institution } from "../../../types/institution";
 // ==========================================
 // HELPERS
 // ==========================================
+
+type UsagePeriod = "today" | "overall";
+
+const periodOptions: Array<{
+  value: UsagePeriod;
+  label: string;
+}> = [
+  { value: "today", label: "Today" },
+  { value: "overall", label: "Overall" },
+];
 
 const formatNumber = (
   value: number,
@@ -60,10 +73,18 @@ function BreakdownCard({
   title,
   data,
   barClassName,
+  caption,
+  icon: Icon,
+  iconContainerClassName,
+  iconClassName,
 }: {
   title: string;
   data: SheetUsageBreakdown;
   barClassName: string;
+  caption: string;
+  icon: React.ElementType;
+  iconContainerClassName: string;
+  iconClassName: string;
 }) {
   const simplexShare = getShare(
     data.simplex_sheets,
@@ -88,12 +109,16 @@ function BreakdownCard({
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            sheets printed today
+            {caption}
           </p>
         </div>
 
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-50">
-          <FileText className="h-5 w-5 text-gray-500" />
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${iconContainerClassName}`}
+        >
+          <Icon
+            className={`h-5 w-5 ${iconClassName}`}
+          />
         </div>
       </div>
 
@@ -152,6 +177,15 @@ export default function SheetUsage() {
   const { accessToken } = useSudoAuth();
 
   // ========================================
+  // PERIOD
+  // ========================================
+
+  const [period, setPeriod] =
+    useState<UsagePeriod>("today");
+
+  const requestIdRef = useRef(0);
+
+  // ========================================
   // DATA
   // ========================================
 
@@ -186,7 +220,13 @@ export default function SheetUsage() {
 
   const fetchSheetUsage = async (
     showRefreshLoader = false,
+    requestedPeriod: UsagePeriod = period,
   ) => {
+    const requestId =
+      requestIdRef.current + 1;
+
+    requestIdRef.current = requestId;
+
     try {
       setError(null);
 
@@ -197,7 +237,15 @@ export default function SheetUsage() {
       }
 
       const data =
-        await getSudoSheetUsageToday();
+        requestedPeriod === "today"
+          ? await getSudoSheetUsageToday()
+          : await getSudoSheetUsageOverall();
+
+      if (
+        requestIdRef.current !== requestId
+      ) {
+        return;
+      }
 
       setUsage(data);
     } catch (err) {
@@ -206,14 +254,24 @@ export default function SheetUsage() {
         err,
       );
 
+      if (
+        requestIdRef.current !== requestId
+      ) {
+        return;
+      }
+
       setError(
         err instanceof Error
           ? err.message
           : "Failed to load printed sheet usage",
       );
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (
+        requestIdRef.current === requestId
+      ) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -224,6 +282,22 @@ export default function SheetUsage() {
   useEffect(() => {
     void fetchSheetUsage();
   }, []);
+
+  // ========================================
+  // PERIOD CHANGE
+  // ========================================
+
+  const handlePeriodChange = (
+    nextPeriod: UsagePeriod,
+  ) => {
+    if (nextPeriod === period) {
+      return;
+    }
+
+    setPeriod(nextPeriod);
+
+    void fetchSheetUsage(true, nextPeriod);
+  };
 
   // ========================================
   // LOAD INSTITUTIONS
@@ -283,6 +357,21 @@ export default function SheetUsage() {
     );
   }, [usage]);
 
+  const isTodayPeriod =
+    period === "today";
+
+  const periodCaption = isTodayPeriod
+    ? "today · UTC"
+    : "all time";
+
+  const periodNoun = isTodayPeriod
+    ? "today"
+    : "all time";
+
+  const breakdownCaption = isTodayPeriod
+    ? "sheets printed today"
+    : "sheets printed all time";
+
   // ========================================
   // LOADING STATE
   // ========================================
@@ -337,7 +426,7 @@ export default function SheetUsage() {
   // ========================================
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* ======================================
           HEADER
       ====================================== */}
@@ -349,9 +438,9 @@ export default function SheetUsage() {
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Today&apos;s physical sheet usage,
-            split by print mode and printing
-            side.
+            {isTodayPeriod
+              ? "Today's physical sheet usage, split by print mode and printing side."
+              : "All-time physical sheet usage, split by print mode and printing side."}
           </p>
         </div>
 
@@ -373,6 +462,73 @@ export default function SheetUsage() {
             ? "Refreshing..."
             : "Refresh"}
         </button>
+      </div>
+
+      {/* ======================================
+          PERIOD FILTER
+      ====================================== */}
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Usage period
+            </label>
+
+            <div
+              role="group"
+              aria-label="Sheet usage period"
+              className="inline-flex rounded-xl bg-gray-100 p-1"
+            >
+              {periodOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={
+                    period === option.value
+                  }
+                  onClick={() =>
+                    handlePeriodChange(
+                      option.value,
+                    )
+                  }
+                  className={`h-9 rounded-lg px-4 text-sm font-semibold transition ${
+                    period === option.value
+                      ? "bg-white text-brand-purple shadow-sm"
+                      : "text-gray-500 hover:text-brand-dark"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              {isTodayPeriod
+                ? "Current-day usage in UTC."
+                : "Lifetime totals across all completed print jobs."}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-purple-50 px-4 py-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-500">
+              Viewing
+            </p>
+
+            <p className="mt-0.5 text-sm font-bold text-brand-purple">
+              {isTodayPeriod
+                ? "Today · UTC"
+                : "Overall · all time"}
+            </p>
+
+            <p className="mt-0.5 text-[11px] font-medium text-purple-500">
+              {kioskRows.length} kiosk
+              {kioskRows.length === 1
+                ? ""
+                : "s"}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ======================================
@@ -410,8 +566,8 @@ export default function SheetUsage() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Black &amp; white + color · today
-            · UTC
+            Black &amp; white + color ·{" "}
+            {periodCaption}
           </p>
         </div>
 
@@ -442,7 +598,7 @@ export default function SheetUsage() {
             {formatNumber(
               usage?.bw.duplex_sheets ?? 0,
             )}{" "}
-            duplex
+            duplex · {periodNoun}
           </p>
         </div>
 
@@ -473,7 +629,7 @@ export default function SheetUsage() {
             {formatNumber(
               usage?.color.duplex_sheets ?? 0,
             )}{" "}
-            duplex
+            duplex · {periodNoun}
           </p>
         </div>
 
@@ -497,8 +653,8 @@ export default function SheetUsage() {
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Sessions printed at least once ·
-            today · UTC
+            Finished print sessions ·{" "}
+            {periodCaption}
           </p>
         </div>
       </div>
@@ -518,6 +674,10 @@ export default function SheetUsage() {
             }
           }
           barClassName="bg-gray-700"
+          caption={breakdownCaption}
+          icon={FileText}
+          iconContainerClassName="bg-gray-100"
+          iconClassName="text-gray-600"
         />
 
         <BreakdownCard
@@ -530,6 +690,10 @@ export default function SheetUsage() {
             }
           }
           barClassName="bg-brand-purple"
+          caption={breakdownCaption}
+          icon={Palette}
+          iconContainerClassName="bg-blue-50"
+          iconClassName="text-blue-600"
         />
       </div>
 
@@ -544,10 +708,13 @@ export default function SheetUsage() {
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Physical sheets printed today at
-            each kiosk, ordered by total sheets.
-            Every kiosk is included, even with
-            zero usage.
+            Physical sheets printed{" "}
+            {isTodayPeriod
+              ? "today"
+              : "across all time"}{" "}
+            at each kiosk, ordered by total
+            sheets. Every kiosk is included, even
+            with zero usage.
           </p>
         </div>
 
@@ -787,7 +954,9 @@ export default function SheetUsage() {
             <Layers className="h-10 w-10 text-gray-300" />
 
             <h3 className="mt-3 text-sm font-semibold text-brand-dark">
-              No sheet usage today
+              {isTodayPeriod
+                ? "No sheet usage today"
+                : "No sheet usage recorded"}
             </h3>
 
             <p className="mt-1 text-sm text-gray-500">
@@ -818,20 +987,13 @@ export default function SheetUsage() {
               Paper ranges, N-up layouts, copies,
               and duplex halving are included, and
               sheets are attributed to the kiosk
-              that physically printed them. All
-              values are for today in UTC.
+              that physically printed them.{" "}
+              {isTodayPeriod
+                ? "All values are for today in UTC."
+                : "Overall totals include every completed print job."}
             </p>
           </div>
         </div>
-      </div>
-
-      {/* ======================================
-          TODAY LABEL
-      ====================================== */}
-
-      <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
-        <CalendarDays className="h-4 w-4" />
-        Today · UTC
       </div>
     </div>
   );
