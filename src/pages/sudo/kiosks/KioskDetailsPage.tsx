@@ -4,11 +4,14 @@ import {
   Building2,
   CreditCard,
   FileText,
+  Hash,
   IndianRupee,
   Loader2,
   MapPin,
   Monitor,
+  Navigation,
   Pencil,
+  Phone,
   Plus,
   Power,
   Printer,
@@ -20,7 +23,13 @@ import {
   Wifi,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useSudoAuth } from "../../../context/SudoAuthContext";
@@ -305,6 +314,38 @@ function ConfirmDialog({
             {state.confirmLabel}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// INFO ITEM
+// ==========================================
+
+function InfoItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-400">
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-400">
+          {label}
+        </p>
+
+        <p className="mt-1 break-words text-sm font-semibold text-gray-900">
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -1136,6 +1177,27 @@ export default function KioskDetailsPage() {
   const pricingRows = kiosk.pricing ?? [];
   const printerRows = kiosk.printers ?? [];
 
+  const fullAddress = [
+    kiosk.address_line_1,
+    kiosk.address_line_2,
+    kiosk.city,
+    kiosk.state,
+    kiosk.postal_code,
+    kiosk.country,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(", ");
+
+  const coordinates =
+    kiosk.latitude != null && kiosk.longitude != null
+      ? `${kiosk.latitude}, ${kiosk.longitude}`
+      : "Not pinned on map";
+
+  const ownershipValue =
+    kiosk.kiosk_type === "institution"
+      ? (institutionName ?? "Institution name unavailable")
+      : "Public kiosk";
+
   // ==========================================
   // RENDER
   // ==========================================
@@ -1230,97 +1292,84 @@ export default function KioskDetailsPage() {
       {/* OVERVIEW */}
       {activeTab === "overview" && (
         <div className="space-y-4">
-          <div className={`${cardClass} p-5`}>
-            <h2 className="text-sm font-semibold text-slate-900">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-900">
               Kiosk Information
             </h2>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {/* Kiosk type */}
-              <div>
-                <p className={eyebrowClass}>Type</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Basic information about this kiosk.
+            </p>
 
-                <p className="mt-1 flex items-center gap-2 text-sm font-semibold capitalize text-slate-800">
-                  {kiosk.kiosk_type === "institution" ? (
-                    <Building2 className="h-4 w-4 text-slate-400" />
+            <div className="mt-7 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+              <InfoItem
+                icon={<Monitor className="h-4 w-4" />}
+                label="Kiosk Name"
+                value={kiosk.name}
+              />
+
+              <InfoItem
+                icon={
+                  kiosk.kiosk_type === "institution" ? (
+                    <Building2 className="h-4 w-4" />
                   ) : (
-                    <Monitor className="h-4 w-4 text-slate-400" />
-                  )}
+                    <Monitor className="h-4 w-4" />
+                  )
+                }
+                label="Kiosk Type"
+                value={
+                  kiosk.kiosk_type === "institution"
+                    ? "Institution kiosk"
+                    : "Public kiosk"
+                }
+              />
 
-                  {kiosk.kiosk_type}
-                </p>
-              </div>
+              <InfoItem
+                icon={<Hash className="h-4 w-4" />}
+                label="Kiosk Code"
+                value={kiosk.kiosk_code || "Not available"}
+              />
 
-              {/* Kiosk code (permanent, read-only) */}
-              <div>
-                <p className={eyebrowClass}>Kiosk Code</p>
+              <InfoItem
+                icon={<Phone className="h-4 w-4" />}
+                label="Phone Number"
+                value={kiosk.phone_no || "Not provided"}
+              />
 
-                <p className="mt-1 font-mono text-sm font-semibold tracking-wider text-slate-800">
-                  {kiosk.kiosk_code || "—"}
-                </p>
-              </div>
-
-              {/* Institution name or public kiosk name */}
-              <div>
-                <p className={eyebrowClass}>
-                  {kiosk.kiosk_type === "institution"
-                    ? "Institution Name"
-                    : "Public Kiosk Name"}
-                </p>
-
-                <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  {kiosk.kiosk_type === "institution" ? (
-                    <>
-                      <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-
-                      <span>
-                        {institutionName ?? "Institution name unavailable"}
-                      </span>
-                    </>
+              <InfoItem
+                icon={
+                  kiosk.kiosk_type === "institution" ? (
+                    <Building2 className="h-4 w-4" />
                   ) : (
-                    <>
-                      <Monitor className="h-4 w-4 shrink-0 text-slate-400" />
+                    <Monitor className="h-4 w-4" />
+                  )
+                }
+                label={
+                  kiosk.kiosk_type === "institution"
+                    ? "Institution"
+                    : "Ownership"
+                }
+                value={ownershipValue}
+              />
 
-                      <span>{kiosk.name}</span>
-                    </>
-                  )}
-                </p>
+              <InfoItem
+                icon={<Navigation className="h-4 w-4" />}
+                label="Coordinates"
+                value={coordinates}
+              />
+
+              <div className="sm:col-span-2 lg:col-span-3">
+                <InfoItem
+                  icon={<MapPin className="h-4 w-4" />}
+                  label="Address"
+                  value={fullAddress || "Not provided"}
+                />
               </div>
-
-              {/* Address */}
-              <div className="md:col-span-2">
-                <p className={eyebrowClass}>Address</p>
-
-                <p className="mt-1 flex items-start gap-2 text-sm font-semibold text-slate-800">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-
-                  <span>
-                    {kiosk.address_line_1}
-                    {/* {kiosk.address_line_2
-                      ? `, ${kiosk.address_line_2}`
-                      : ""} */}
-                    , {kiosk.city} 
-                    {/* {kiosk.state} {kiosk.country} */}
-                    {/* {kiosk.postal_code ? ` - ${kiosk.postal_code}` : ""} */}
-                  </span>
-                </p>
-              </div>
-
-              {/* Coordinates */}
-              {kiosk.latitude != null && kiosk.longitude != null && (
-                <div>
-                  <p className={eyebrowClass}>Coordinates</p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {kiosk.latitude}, {kiosk.longitude}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* DANGER ZONE */}
-          <div className="rounded-3xl border border-red-200 bg-red-50 p-5">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-red-700">

@@ -5,6 +5,7 @@ import {
   Monitor,
   Building2,
   MapPin,
+  Phone,
   AlertTriangle,
 } from "lucide-react";
 
@@ -66,6 +67,7 @@ export default function EditKioskPage() {
   const [state, setState] = useState("");
   const [country, setCountry] = useState("");
   const [postalCode, setPostalCode] = useState("");
+  const [phoneNo, setPhoneNo] = useState("");
 
   // Coordinates are optional.
   // Empty strings mean no location is configured.
@@ -122,6 +124,8 @@ export default function EditKioskPage() {
         setState(kiosk.state ?? "");
         setCountry(kiosk.country ?? "");
         setPostalCode(kiosk.postal_code ?? "");
+
+        setPhoneNo(kiosk.phone_no ?? "");
 
         // Populate the map with the saved location.
         setLatitude(
@@ -292,6 +296,11 @@ export default function EditKioskPage() {
       return false;
     }
 
+    if (phoneNo.trim().length > 20) {
+      toast.error("Phone number must be 20 characters or fewer");
+      return false;
+    }
+
     // Coordinates must either both be present or both be empty.
     const hasLatitude = latitude.trim() !== "";
     const hasLongitude = longitude.trim() !== "";
@@ -382,6 +391,8 @@ export default function EditKioskPage() {
         country: country.trim(),
 
         postal_code: postalCode.trim() || null,
+
+        phone_no: phoneNo.trim() || null,
 
         // Always send both coordinates together.
         // null + null removes the kiosk from the map.
@@ -584,6 +595,34 @@ export default function EditKioskPage() {
                     </span>
                   </div>
                 </button>
+              </div>
+            </div>
+
+            {/* PHONE */}
+
+            <div className="space-y-2 md:col-span-2">
+              <label
+                htmlFor="phoneNo"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Phone Number
+              </label>
+
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+                <input
+                  id="phoneNo"
+                  type="tel"
+                  value={phoneNo}
+                  onChange={(event) =>
+                    setPhoneNo(event.target.value)
+                  }
+                  maxLength={20}
+                  placeholder="e.g. +91 98765 43210"
+                  disabled={isSubmitting}
+                  className="h-12 w-full rounded-full border border-gray-200 pl-11 pr-5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                />
               </div>
             </div>
           </div>

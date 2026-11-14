@@ -55,6 +55,8 @@ export interface Kiosk {
 
   postal_code?: string | null;
 
+  phone_no?: string | null;
+
   latitude?: number | null;
 
   longitude?: number | null;
@@ -93,6 +95,8 @@ export interface CreateKioskPayload {
 
   postal_code?: string | null;
 
+  phone_no?: string | null;
+
   latitude?: number | null;
 
   longitude?: number | null;
@@ -120,6 +124,8 @@ export interface UpdateKioskPayload {
   country?: string;
 
   postal_code?: string | null;
+
+  phone_no?: string | null;
 
   latitude?: number | null;
 
@@ -291,6 +297,8 @@ export interface KioskDetails {
   country: string;
 
   postal_code?: string | null;
+
+  phone_no?: string | null;
 
   latitude?: number | null;
 

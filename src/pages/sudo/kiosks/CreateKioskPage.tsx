@@ -43,6 +43,7 @@ export default function CreateKioskPage() {
   const [state, setState] = useState("");
   const [country, setCountry] = useState("India");
   const [postalCode, setPostalCode] = useState("");
+  const [phoneNo, setPhoneNo] = useState("");
 
   // Coordinates are optional. Empty strings mean no location selected.
   const [latitude, setLatitude] = useState("");
@@ -170,6 +171,11 @@ export default function CreateKioskPage() {
       return false;
     }
 
+    if (phoneNo.trim().length > 20) {
+      toast.error("Phone number must be 20 characters or fewer");
+      return false;
+    }
+
     // Coordinates must either both be provided or both be empty.
     const hasLatitude = latitude.trim() !== "";
     const hasLongitude = longitude.trim() !== "";
@@ -239,6 +245,7 @@ export default function CreateKioskPage() {
         state: state.trim(),
         country: country.trim(),
         postal_code: postalCode.trim() || null,
+        phone_no: phoneNo.trim() || null,
 
         // Send both coordinates or neither.
         latitude: hasLocation ? Number(latitude) : null,
@@ -341,6 +348,32 @@ export default function CreateKioskPage() {
             disabled={isSubmitting}
             className="w-full rounded-full border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
           />
+
+          <div className="mt-5">
+            <label
+              htmlFor="phone"
+              className="mb-2 block text-sm font-semibold text-gray-700"
+            >
+              Phone Number
+            </label>
+
+            <input
+              id="phone"
+              type="tel"
+              value={phoneNo}
+              onChange={(event) =>
+                setPhoneNo(event.target.value)
+              }
+              placeholder="e.g. +91 98765 43210"
+              maxLength={20}
+              disabled={isSubmitting}
+              className="w-full rounded-full border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+            />
+
+            <p className="mt-2 text-xs text-gray-500">
+              Optional. Contact number for this kiosk site.
+            </p>
+          </div>
         </section>
 
         {/* Kiosk type */}
